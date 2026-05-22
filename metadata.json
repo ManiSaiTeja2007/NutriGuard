@@ -1,0 +1,6 @@
+{
+  "name": "NutriGuard",
+  "description": "On-device ingredient scanner that highlights risk warnings using ML Kit OCR and fuzzy Levenshtein distance matching.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

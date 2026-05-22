@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriGuard - Bulk Pipeline Integration Test Report</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient-start: #0f172a;
+            --bg-gradient-end: #1e293b;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #38bdf8;
+            --badge-high: #f43f5e;
+            --badge-moderate: #fbbf24;
+            --badge-safe: #34d399;
+        }
+        body {
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            margin-bottom: 2.5rem;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+        p.subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-top: 0;
+        }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.25);
+        }
+        .card .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--accent-blue);
+            margin-bottom: 0.25rem;
+        }
+        .card .label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+        .table-container {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.25);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        th, td {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            background-color: rgba(15, 23, 42, 0.7);
+            color: var(--accent-blue);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.08em;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+        .file-name {
+            font-weight: 600;
+            color: #f1f5f9;
+            word-break: break-all;
+        }
+        .raw-ocr {
+            color: #cbd5e1;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            max-height: 150px;
+            overflow-y: auto;
+            background: rgba(15, 23, 42, 0.4);
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            line-height: 1.4;
+        }
+        .warning-badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.02em;
+        }
+        .warning-badge.high {
+            background-color: rgba(244, 63, 94, 0.15);
+            color: var(--badge-high);
+            border: 1px solid rgba(244, 63, 94, 0.3);
+        }
+        .warning-badge.moderate {
+            background-color: rgba(251, 191, 36, 0.15);
+            color: var(--badge-moderate);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+        .no-warnings {
+            color: var(--badge-safe);
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .warning-item {
+            margin-bottom: 1rem;
+            padding: 0.5rem 0.75rem;
+            background: rgba(255, 255, 255, 0.01);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+        .warning-item:last-child {
+            margin-bottom: 0;
+        }
+        .warning-details {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-top: 0.25rem;
+            line-height: 1.4;
+        }
+        .warning-details strong {
+            color: #e2e8f0;
+        }
+        .timestamp {
+            text-align: center;
+            margin-top: 2.5rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>NutriGuard</h1>
+            <p class="subtitle">Bulk Image Pipeline Integration Test Report</p>
+        </header>
+        <div class="summary-cards">
+            <div class="card">
+                <div class="value" id="total-images">1</div>
+                <div class="label">Total Images</div>
+            </div>
+            <div class="card">
+                <div class="value" id="flagged-images">0</div>
+                <div class="label">Flagged Images</div>
+            </div>
+            <div class="card">
+                <div class="value" id="warnings-count">0</div>
+                <div class="label">Total Warnings</div>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Image File Name</th>
+                        <th style="width: 40%;">Raw OCR Text</th>
+                        <th style="width: 35%;">Detected Warnings &amp; Distances</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <tr><td class="file-name">placeholder.png</td><td><div class="raw-ocr">[Error: Decoded bitmap was null]</div></td><td><span class="no-warnings">✓ No flagged ingredients detected</span></td></tr>
+
+                </tbody>
+            </table>
+        </div>
+        <div class="timestamp">
+            Report generated at: <span id="time-placeholder">2026-05-22 14:15:17</span>
+        </div>
+    </div>
+</body>
+</html>
