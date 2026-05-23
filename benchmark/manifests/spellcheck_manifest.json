@@ -6,7 +6,7 @@
   "file_count": 1,
   "files": [
     {
-      "path": "raw\\spellcheck\\norvig_spell_testset1.txt",
+      "path": "raw/spellcheck/norvig_spell_testset1.txt",
       "size_bytes": 3780,
       "checksum_sha256": "a5a152f32d66001fd9762e6745357a744e415eae064bd8cb2f4a42471f850724"
     }
