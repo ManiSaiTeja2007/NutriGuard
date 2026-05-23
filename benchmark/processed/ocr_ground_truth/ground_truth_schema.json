@@ -1,0 +1,14 @@
+{
+  "image": "label_001.jpg",
+  "ground_truth_text": "ingredients: sugar, salt, citric acid",
+  "expected_ingredients": [
+    "sugar",
+    "salt",
+    "citric acid"
+  ],
+  "expected_canonical": [
+    "sugar",
+    "salt",
+    "citric acid"
+  ]
+}

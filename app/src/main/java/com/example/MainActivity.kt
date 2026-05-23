@@ -17,7 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import com.example.ui.NutriGuardDebugScreen
+import com.example.ui.screens.CameraValidationScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
                 )
 
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    NutriGuardDebugScreen(
+                    CameraValidationScreen(
                         hasCameraPermission = hasCameraPermission,
                         onRequestCameraPermission = {
                             permissionLauncher.launch(Manifest.permission.CAMERA)

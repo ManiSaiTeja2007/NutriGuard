@@ -1,0 +1,13 @@
+{
+  "dataset_name": "openfoodfacts/world-food-facts",
+  "source": "https://www.kaggle.com/datasets/openfoodfacts/world-food-facts",
+  "downloaded_at": "2026-05-23T10:16:30Z",
+  "subset_size": 0,
+  "file_count": 0,
+  "files": [],
+  "preprocessing_lineage": {
+    "raw_status": "pending",
+    "annotation_version": "1.0.0",
+    "normalized_version": "1.0.0"
+  }
+}

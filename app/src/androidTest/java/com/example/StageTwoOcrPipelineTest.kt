@@ -2,10 +2,10 @@ package com.example
 
 import androidx.test.platform.app.InstrumentationRegistry
 import android.util.Log
-import com.example.camera.FramePipeline
-import com.example.camera.FrameSource
-import com.example.camera.TestBitmapFrameSource
-import com.example.ocr.OcrProcessor
+import com.example.core.frame.FramePipeline
+import com.example.core.imaging.ImageFrame
+import com.example.core.imaging.ImageSource
+import com.example.core.ocr.OcrPipeline
 import com.example.utils.BitmapAssetLoader
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -26,7 +26,7 @@ class StageTwoOcrPipelineTest {
         assertFalse("Expected test label images in androidTest assets.", assetNames.isEmpty())
 
         val framePipeline = FramePipeline(throttleMs = 0L)
-        val ocrProcessor = OcrProcessor()
+        val ocrPipeline = OcrPipeline()
         var nonEmptyOcrCount = 0
         var ocrExecutedCount = 0
         var segmentedCount = 0
@@ -35,17 +35,19 @@ class StageTwoOcrPipelineTest {
         try {
             assetNames.forEach { assetName ->
                 val asset = BitmapAssetLoader.loadWithMetadata(context, "$TEST_LABEL_DIR/$assetName")
-                val frame = TestBitmapFrameSource.fromBitmap(
+                val frame = ImageFrame.BitmapFrame(
                     bitmap = asset.bitmap,
-                    rotationDegrees = asset.rotationDegrees
+                    rotationDegrees = asset.rotationDegrees,
+                    timestampNanos = System.nanoTime(),
+                    source = ImageSource.TEST_ASSET
                 )
-                val frameResult = framePipeline.process(frame)
+                val frameResult = framePipeline(frame)
 
                 assertNotNull("Expected $assetName to produce a frame result.", frameResult)
                 requireNotNull(frameResult)
-                assertEquals(FrameSource.TEST_ASSET, frameResult.source)
+                assertEquals(ImageSource.TEST_ASSET, frameResult.source)
 
-                val ocrResult = ocrProcessor.recognizeBitmap(frame, frameResult)
+                val ocrResult = ocrPipeline(Pair(frame, frameResult))
                 assertEquals(frameResult, ocrResult.frame)
 
                 assertTrue("OCR should not skip bitmap assets after segment padding.", ocrResult.skippedReason == null)
@@ -62,7 +64,7 @@ class StageTwoOcrPipelineTest {
                 asset.bitmap.recycle()
             }
         } finally {
-            ocrProcessor.close()
+            ocrPipeline.close()
         }
 
         assertTrue("Expected OCR to execute on eligible dataset images.", ocrExecutedCount > 0)

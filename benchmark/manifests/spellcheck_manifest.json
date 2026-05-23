@@ -1,0 +1,19 @@
+{
+  "dataset_name": "Peter Norvig Spell Test Set 1",
+  "source": "https://norvig.com/spell-testset1.txt",
+  "downloaded_at": "2026-05-23T04:50:04.384282Z",
+  "subset_size": 142,
+  "file_count": 1,
+  "files": [
+    {
+      "path": "raw\\spellcheck\\norvig_spell_testset1.txt",
+      "size_bytes": 3780,
+      "checksum_sha256": "a5a152f32d66001fd9762e6745357a744e415eae064bd8cb2f4a42471f850724"
+    }
+  ],
+  "preprocessing_lineage": {
+    "raw_status": "downloaded",
+    "annotation_version": "1.0.0",
+    "normalized_version": "1.0.0"
+  }
+}

@@ -1,4 +1,4 @@
-package com.example.ui
+package com.example.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -39,20 +39,25 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.camera.FrameAnalysisResult
-import com.example.camera.FramePipeline
-import com.example.camera.TestBitmapFrameSource
-import com.example.ocr.OcrProcessor
-import com.example.ocr.OcrResult
+import com.example.core.frame.FrameAnalysisResult
+import com.example.core.frame.FramePipeline
+import com.example.core.imaging.ImageFrame
+import com.example.core.imaging.ImageSource
+import com.example.core.ocr.OcrPipeline
+import com.example.core.ocr.OcrResult
+import com.example.ui.CameraPreview
+import com.example.ui.components.CameraMetadataPanel
+import com.example.ui.components.CameraOcrOutputPanel
+import com.example.ui.state.CameraValidationState
+import com.example.ui.state.DebugMode
 import com.example.utils.LoadedBitmapAsset
 import com.example.utils.TestLabelAssetRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun NutriGuardDebugScreen(
+fun CameraValidationScreen(
     hasCameraPermission: Boolean,
     onRequestCameraPermission: () -> Unit,
     modifier: Modifier = Modifier
@@ -92,7 +97,7 @@ private fun Header(
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(
-            text = "NutriGuard OCR Debug",
+            text = "NutriGuard OCR Hardening Dashboard",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF163832)
@@ -144,44 +149,46 @@ private fun TestImageValidationPanel(
     val repository = remember(context) { TestLabelAssetRepository(context) }
     val imageNames = remember(repository) { repository.listImageNames() }
     val framePipeline = remember { FramePipeline(throttleMs = 0L) }
-    var ocrProcessor by remember { mutableStateOf<OcrProcessor?>(null) }
+    var ocrPipeline by remember { mutableStateOf<OcrPipeline?>(null) }
     var selectedIndex by remember { mutableIntStateOf(0) }
-    var state by remember { mutableStateOf(AssetValidationState()) }
+    var state by remember { mutableStateOf(CameraValidationState()) }
 
     DisposableEffect(Unit) {
         onDispose {
-            ocrProcessor?.close()
+            ocrPipeline?.close()
         }
     }
 
     LaunchedEffect(imageNames, selectedIndex) {
         if (imageNames.isEmpty()) {
-            state = AssetValidationState(status = "No test label assets found")
+            state = CameraValidationState(status = "No test label assets found")
             return@LaunchedEffect
         }
 
         val fileName = imageNames[selectedIndex.coerceIn(imageNames.indices)]
-        state = AssetValidationState(status = "Loading bitmap")
+        state = CameraValidationState(status = "Loading bitmap")
 
         state = try {
             val asset = withContext(Dispatchers.IO) {
                 repository.load(fileName)
             }
-            val frame = TestBitmapFrameSource.fromBitmap(
+            val frame = ImageFrame.BitmapFrame(
                 bitmap = asset.bitmap,
-                rotationDegrees = asset.rotationDegrees
+                rotationDegrees = asset.rotationDegrees,
+                timestampNanos = System.nanoTime(),
+                source = ImageSource.TEST_ASSET
             )
-            val frameResult = requireNotNull(framePipeline.process(frame)) {
+            val frameResult = requireNotNull(framePipeline(frame)) {
                 "Frame pipeline throttled test asset unexpectedly."
             }
-            val processor = ocrProcessor ?: OcrProcessor().also {
-                ocrProcessor = it
+            val pipeline = ocrPipeline ?: OcrPipeline().also {
+                ocrPipeline = it
             }
             val ocrResult = withContext(Dispatchers.Default) {
-                processor.recognizeBitmap(frame, frameResult)
+                pipeline(Pair(frame, frameResult))
             }
 
-            AssetValidationState(
+            CameraValidationState(
                 asset = asset,
                 frameResult = frameResult,
                 ocrResult = ocrResult,
@@ -193,7 +200,7 @@ private fun TestImageValidationPanel(
                 }
             )
         } catch (error: Throwable) {
-            AssetValidationState(
+            CameraValidationState(
                 status = "Pipeline failed",
                 errorMessage = error.message ?: error::class.java.simpleName
             )
@@ -245,7 +252,7 @@ private fun TestImageValidationPanel(
             }
         }
 
-        MetadataBlock(
+        CameraMetadataPanel(
             title = "Test Image",
             fileName = state.asset?.fileName ?: imageNames[selectedIndex],
             frameResult = state.frameResult,
@@ -254,7 +261,7 @@ private fun TestImageValidationPanel(
             errorMessage = state.errorMessage
         )
 
-        OcrOutputBlock(state.ocrResult)
+        CameraOcrOutputPanel(state.ocrResult)
     }
 }
 
@@ -296,11 +303,11 @@ private fun LiveCameraOcrPanel(
     var latestFrame by remember { mutableStateOf<FrameAnalysisResult?>(null) }
     var latestOcr by remember { mutableStateOf<OcrResult?>(null) }
     val framePipeline = remember { FramePipeline() }
-    val ocrProcessor = remember { OcrProcessor() }
+    val ocrPipeline = remember { OcrPipeline() }
 
     DisposableEffect(Unit) {
         onDispose {
-            ocrProcessor.close()
+            ocrPipeline.close()
         }
     }
 
@@ -328,7 +335,7 @@ private fun LiveCameraOcrPanel(
         CameraPreview(
             framePipeline = framePipeline,
             onFrameValidated = { latestFrame = it },
-            ocrProcessor = ocrProcessor,
+            ocrPipeline = ocrPipeline,
             onOcrResult = { latestOcr = it },
             modifier = Modifier.fillMaxSize()
         )
@@ -340,7 +347,7 @@ private fun LiveCameraOcrPanel(
                 .background(Color.Black.copy(alpha = 0.72f))
                 .padding(16.dp)
         ) {
-            MetadataBlock(
+            CameraMetadataPanel(
                 title = "Live Camera",
                 fileName = "CameraX frame",
                 frameResult = latestFrame,
@@ -349,123 +356,7 @@ private fun LiveCameraOcrPanel(
                 dark = true
             )
             Spacer(modifier = Modifier.height(12.dp))
-            OcrOutputBlock(result = latestOcr, dark = true)
+            CameraOcrOutputPanel(result = latestOcr, dark = true)
         }
     }
-}
-
-@Composable
-private fun MetadataBlock(
-    title: String,
-    fileName: String,
-    frameResult: FrameAnalysisResult?,
-    ocrResult: OcrResult?,
-    status: String,
-    errorMessage: String? = null,
-    dark: Boolean = false
-) {
-    val primary = if (dark) Color.White else Color(0xFF163832)
-    val secondary = if (dark) Color(0xFFD9E4E0) else Color(0xFF3D4946)
-    val resolution = frameResult?.let { "${it.width}x${it.height}" } ?: "Pending"
-    val rotation = frameResult?.rotationDegrees?.toString() ?: "Pending"
-    val pipelineLatency = frameResult?.processingLatencyMs?.let { "${it}ms" } ?: "Pending"
-    val ocrLatency = ocrResult?.let {
-        if (it.skippedReason == null) "${it.processingLatencyMs}ms" else "Skipped"
-    } ?: "Pending"
-    val confidence = ocrResult?.averageConfidence?.let { "%.2f".format(it) } ?: "Unavailable"
-    val segments = ocrResult?.segmentsProcessed?.toString() ?: "Pending"
-
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = primary
-        )
-        DebugLine("Filename", fileName, primary, secondary)
-        DebugLine("Resolution", resolution, primary, secondary)
-        DebugLine("Rotation", rotation, primary, secondary)
-        DebugLine("Pipeline Time", pipelineLatency, primary, secondary)
-        DebugLine("OCR Time", ocrLatency, primary, secondary)
-        DebugLine("OCR Segments", segments, primary, secondary)
-        DebugLine("Confidence", confidence, primary, secondary)
-        DebugLine(
-            "Status",
-            errorMessage ?: ocrResult?.skippedReason ?: status,
-            primary,
-            if (errorMessage == null && ocrResult?.skippedReason == null) secondary else Color(0xFFB3261E)
-        )
-    }
-}
-
-@Composable
-private fun DebugLine(
-    label: String,
-    value: String,
-    labelColor: Color,
-    valueColor: Color
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = "$label:",
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Bold,
-            color = labelColor,
-            modifier = Modifier.size(width = 104.dp, height = 20.dp)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            color = valueColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun OcrOutputBlock(
-    result: OcrResult?,
-    dark: Boolean = false
-) {
-    val background = if (dark) Color.Transparent else Color.White
-    val border = if (dark) Color.White.copy(alpha = 0.18f) else Color(0xFFC8D4CF)
-    val textColor = if (dark) Color.White else Color(0xFF163832)
-    val bodyColor = if (dark) Color(0xFFEAF3F0) else Color(0xFF263D38)
-    val text = result?.text?.ifBlank { "No text recognized" } ?: "OCR pending"
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(background)
-            .border(1.dp, border, RoundedCornerShape(8.dp))
-            .padding(14.dp)
-    ) {
-        Text(
-            text = "OCR OUTPUT",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = textColor
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = bodyColor
-        )
-    }
-}
-
-private data class AssetValidationState(
-    val asset: LoadedBitmapAsset? = null,
-    val frameResult: FrameAnalysisResult? = null,
-    val ocrResult: OcrResult? = null,
-    val status: String = "Idle",
-    val errorMessage: String? = null
-)
-
-private enum class DebugMode {
-    TestImages,
-    LiveCamera
 }

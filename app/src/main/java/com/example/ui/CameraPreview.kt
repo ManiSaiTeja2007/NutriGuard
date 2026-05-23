@@ -15,19 +15,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.example.camera.CameraFrameAnalyzer
-import com.example.camera.FrameAnalysisResult
-import com.example.camera.FramePipeline
-import com.example.ocr.OcrCameraFrameAnalyzer
-import com.example.ocr.OcrProcessor
-import com.example.ocr.OcrResult
+import com.example.core.frame.CameraFrameAnalyzer
+import com.example.core.frame.FrameAnalysisResult
+import com.example.core.frame.FramePipeline
+import com.example.core.ocr.OcrCameraFrameAnalyzer
+import com.example.core.ocr.OcrPipeline
+import com.example.core.ocr.OcrResult
 import java.util.concurrent.Executors
 
 @Composable
 fun CameraPreview(
     framePipeline: FramePipeline,
     onFrameValidated: (FrameAnalysisResult) -> Unit,
-    ocrProcessor: OcrProcessor? = null,
+    ocrPipeline: OcrPipeline? = null,
     onOcrResult: (OcrResult) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -65,12 +65,15 @@ fun CameraPreview(
                         .also {
                             it.setAnalyzer(
                                 cameraExecutor,
-                                if (ocrProcessor == null) {
-                                    CameraFrameAnalyzer(framePipeline, onFrameValidated)
+                                if (ocrPipeline == null) {
+                                    CameraFrameAnalyzer(
+                                        framePipeline = framePipeline,
+                                        onFrameValidated = onFrameValidated
+                                    )
                                 } else {
                                     OcrCameraFrameAnalyzer(
                                         framePipeline = framePipeline,
-                                        ocrProcessor = ocrProcessor,
+                                        ocrPipeline = ocrPipeline,
                                         onOcrResult = onOcrResult,
                                         onFrameValidated = onFrameValidated
                                     )
