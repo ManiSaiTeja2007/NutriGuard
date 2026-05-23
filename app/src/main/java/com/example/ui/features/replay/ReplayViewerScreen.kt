@@ -168,6 +168,70 @@ fun ReplayViewerScreen(
                 }
             }
 
+            // 4b. Reconstructed OCR Layout & Multi-pass card
+            val ocrWords = data.optJSONArray("ocr_words")
+            val reconstructedLines = data.optJSONArray("reconstructed_lines")
+            val detectedParagraphs = data.optJSONArray("detected_paragraphs")
+            val passesRun = data.optJSONArray("passes_run")
+
+            if (ocrWords != null || reconstructedLines != null || detectedParagraphs != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Reconstructed OCR Layout Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF163832))
+                        
+                        if (passesRun != null && passesRun.length() > 0) {
+                            val passesStr = (0 until passesRun.length()).map { passesRun.getString(it) }.joinToString(", ")
+                            Text("Passes Run: $passesStr", style = MaterialTheme.typography.bodySmall, color = Color(0xFF116A5B), fontWeight = FontWeight.Bold)
+                        }
+
+                        if (ocrWords != null) {
+                            Text("Deduplicated Words (${ocrWords.length()}):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF5D6E6A))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 120.dp)
+                                    .background(Color(0xFFF7FAF9))
+                                    .border(1.dp, Color(0xFFE8EFEC))
+                                    .padding(8.dp)
+                            ) {
+                                val textList = (0 until ocrWords.length()).map { ocrWords.getJSONObject(it).optString("text") }
+                                Text(textList.joinToString(", "), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+
+                        if (reconstructedLines != null) {
+                            Text("Reconstructed Lines (${reconstructedLines.length()}):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF5D6E6A))
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                for (i in 0 until reconstructedLines.length()) {
+                                    val line = reconstructedLines.getJSONObject(i)
+                                    val bounds = line.optJSONObject("bounds")
+                                    val boundsStr = if (bounds != null) "[L:${bounds.optInt("left")} T:${bounds.optInt("top")} R:${bounds.optInt("right")} B:${bounds.optInt("bottom")}]" else ""
+                                    val wordsArr = line.optJSONArray("words")
+                                    val lineText = if (wordsArr != null) (0 until wordsArr.length()).map { wordsArr.getString(it) }.joinToString(" ") else ""
+                                    Text("Line ${i + 1}: \"$lineText\" $boundsStr (conf: ${"%.2f".format(line.optDouble("confidence"))})", style = MaterialTheme.typography.bodySmall, color = Color(0xFF3D4946))
+                                }
+                            }
+                        }
+
+                        if (detectedParagraphs != null && detectedParagraphs.length() > 0) {
+                            Text("Detected Ingredient Paragraph:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF0D5C4A))
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                for (i in 0 until detectedParagraphs.length()) {
+                                    val line = detectedParagraphs.getJSONObject(i)
+                                    val wordsArr = line.optJSONArray("words")
+                                    val lineText = if (wordsArr != null) (0 until wordsArr.length()).map { wordsArr.getString(it) }.joinToString(" ") else ""
+                                    Text("• $lineText", style = MaterialTheme.typography.bodySmall, color = Color(0xFF163832), fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // 5. Ingredient correction waterfall traces
             val canonicalArr = data.optJSONArray("canonical_ingredients")
             if (canonicalArr != null && canonicalArr.length() > 0) {

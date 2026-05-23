@@ -18,6 +18,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.platform.LocalDensity
+import com.example.core.ocr.OCRWord
+import com.example.core.ocr.OCRLine
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -236,9 +246,7 @@ private fun LiveCameraPanel(
                         processAndNavigate(
                             context = context,
                             sourceName = "Live Camera Scan",
-                            ocrText = currentOcr.text,
-                            ocrLatency = currentOcr.processingLatencyMs,
-                            ocrConfidence = currentOcr.averageConfidence ?: 0.8f,
+                            ocrResult = currentOcr,
                             navController = navController
                         )
                     }
@@ -340,7 +348,7 @@ private fun TestImagesPanel(
             return@Column
         }
 
-        TestImagePreview(state.asset)
+        TestImagePreview(state.asset, state.ocrResult)
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -387,9 +395,7 @@ private fun TestImagesPanel(
                     processAndNavigate(
                         context = context,
                         sourceName = state.asset?.fileName ?: "Test Image",
-                        ocrText = ocrText,
-                        ocrLatency = ocrResult.processingLatencyMs,
-                        ocrConfidence = ocrResult.averageConfidence ?: 0.85f,
+                        ocrResult = ocrResult,
                         navController = navController
                     )
                     loading = false
@@ -427,8 +433,11 @@ private fun TestImagesPanel(
 }
 
 @Composable
-private fun TestImagePreview(asset: LoadedBitmapAsset?) {
-    Box(
+private fun TestImagePreview(
+    asset: LoadedBitmapAsset?,
+    ocrResult: OcrResult?
+) {
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .height(300.dp)
@@ -440,8 +449,9 @@ private fun TestImagePreview(asset: LoadedBitmapAsset?) {
         if (asset == null) {
             Text(text = "Loading preview", color = Color(0xFF3D4946))
         } else {
+            val imageBitmap = remember(asset.bitmap) { asset.bitmap.asImageBitmap() }
             Image(
-                bitmap = asset.bitmap.asImageBitmap(),
+                bitmap = imageBitmap,
                 contentDescription = asset.fileName,
                 modifier = Modifier
                     .fillMaxSize()
@@ -451,18 +461,141 @@ private fun TestImagePreview(asset: LoadedBitmapAsset?) {
                     },
                 contentScale = ContentScale.Fit
             )
+
+            if (AppSettings.ocrDiagnostics && ocrResult != null) {
+                val density = LocalDensity.current
+                val paddingPx = with(density) { 8.dp.toPx() }
+                
+                val containerW = maxWidth.value * density.density - (paddingPx * 2)
+                val containerH = maxHeight.value * density.density - (paddingPx * 2)
+                
+                val bitmapW = asset.bitmap.width.toFloat()
+                val bitmapH = asset.bitmap.height.toFloat()
+                
+                if (containerW > 0 && containerH > 0 && bitmapW > 0 && bitmapH > 0) {
+                    val (scale, offset) = calculateFitScaleAndOffset(containerW, containerH, bitmapW, bitmapH)
+                    val (offsetX, offsetY) = offset
+
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp)
+                    ) {
+                        // 1. Draw detected words (yellow stroke)
+                        ocrResult.ocrWords.forEach { word ->
+                            val left = offsetX + word.bounds.left * scale
+                            val top = offsetY + word.bounds.top * scale
+                            val right = offsetX + word.bounds.right * scale
+                            val bottom = offsetY + word.bounds.bottom * scale
+                            
+                            drawRect(
+                                color = Color(0xFFF39C12).copy(alpha = 0.6f),
+                                topLeft = Offset(left, top),
+                                size = Size(right - left, bottom - top),
+                                style = Stroke(width = 1.dp.toPx())
+                            )
+                        }
+
+                        // 2. Draw detected ingredient paragraphs (green fill and stroke)
+                        ocrResult.detectedParagraphs.forEach { line ->
+                            val left = offsetX + line.bounds.left * scale
+                            val top = offsetY + line.bounds.top * scale
+                            val right = offsetX + line.bounds.right * scale
+                            val bottom = offsetY + line.bounds.bottom * scale
+
+                            drawRect(
+                                color = Color(0xFF2ECC71).copy(alpha = 0.15f),
+                                topLeft = Offset(left, top),
+                                size = Size(right - left, bottom - top)
+                            )
+                            
+                            drawRect(
+                                color = Color(0xFF27AE60).copy(alpha = 0.8f),
+                                topLeft = Offset(left, top),
+                                size = Size(right - left, bottom - top),
+                                style = Stroke(width = 1.5f.dp.toPx())
+                            )
+                        }
+
+                        // 3. Draw reading order indexes and reconstructed lines (blue dashed stroke)
+                        ocrResult.reconstructedLines.forEachIndexed { index, line ->
+                            val left = offsetX + line.bounds.left * scale
+                            val top = offsetY + line.bounds.top * scale
+                            
+                            drawRect(
+                                color = Color(0xFF3498DB).copy(alpha = 0.5f),
+                                topLeft = Offset(left, top),
+                                size = Size(
+                                    (line.bounds.right - line.bounds.left) * scale,
+                                    (line.bounds.bottom - line.bounds.top) * scale
+                                ),
+                                style = Stroke(
+                                    width = 1.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(
+                                        floatArrayOf(10f, 10f), 0f
+                                    )
+                                )
+                            )
+
+                            // Circle badge for reading order
+                            drawCircle(
+                                color = Color(0xFFE74C3C),
+                                radius = 8.dp.toPx(),
+                                center = Offset(left, top + ((line.bounds.bottom - line.bounds.top) * scale / 2f))
+                            )
+                            
+                            drawContext.canvas.nativeCanvas.drawText(
+                                (index + 1).toString(),
+                                left - 3.dp.toPx(),
+                                top + ((line.bounds.bottom - line.bounds.top) * scale / 2f) + 3.dp.toPx(),
+                                android.graphics.Paint().apply {
+                                    color = android.graphics.Color.WHITE
+                                    textSize = 10.dp.toPx()
+                                    isFakeBoldText = true
+                                }
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
+}
+
+private fun calculateFitScaleAndOffset(
+    containerW: Float,
+    containerH: Float,
+    bitmapW: Float,
+    bitmapH: Float
+): Pair<Float, Pair<Float, Float>> {
+    val bitmapRatio = bitmapW / bitmapH
+    val containerRatio = containerW / containerH
+
+    val scale = if (bitmapRatio > containerRatio) {
+        containerW / bitmapW
+    } else {
+        containerH / bitmapH
+    }
+
+    val actualW = bitmapW * scale
+    val actualH = bitmapH * scale
+
+    val offsetX = (containerW - actualW) / 2f
+    val offsetY = (containerH - actualH) / 2f
+
+    return Pair(scale, Pair(offsetX, offsetY))
 }
 
 private suspend fun processAndNavigate(
     context: Context,
     sourceName: String,
-    ocrText: String,
-    ocrLatency: Long,
-    ocrConfidence: Float,
+    ocrResult: OcrResult,
     navController: NavController
 ) = withContext(Dispatchers.Default) {
+    val ocrText = ocrResult.text
+    val ocrLatency = ocrResult.processingLatencyMs
+    val ocrConfidence = ocrResult.averageConfidence ?: 0.8f
+
     val vocabulary = IngredientVocabulary()
     val pipeline = IngredientNormalizationPipeline(vocabulary)
 
@@ -555,7 +688,11 @@ private suspend fun processAndNavigate(
             canonicalIngredients = ingestionResult.correction.output,
             metrics = metrics,
             failures = failuresList,
-            latencyMetrics = latenciesMap
+            latencyMetrics = latenciesMap,
+            ocrWords = ocrResult.ocrWords,
+            reconstructedLines = ocrResult.reconstructedLines,
+            detectedParagraphs = ocrResult.detectedParagraphs,
+            passesRun = ocrResult.passesRun
         )
     }
 
