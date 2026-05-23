@@ -1,9 +1,9 @@
 package com.example
 
 import com.example.core.ingredient.*
+import com.example.core.intelligence.alias.AliasResolver
+import com.example.core.intelligence.vocabulary.IngredientVocabulary
 import com.example.core.normalization.TextNormalizer
-import com.example.core.matching.*
-import com.example.core.ocr.MatchType
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -82,14 +82,16 @@ class TextIntelligenceTest {
 
         // Fuzzy (Levenshtein)
         val fuzzy = resolver.resolve("wateer")
-        val expectedConf = 1.0f - (1.0f / 6.0f) // distance 1, maxLength 6 -> 0.8333f
+        val baseSimilarity = 1.0f - (1.0f / 6.0f)
+        val expectedConf = baseSimilarity * 0.8f + 0.8f * 0.2f
         assertEquals(expectedConf, fuzzy.first().confidence, 0.001f)
 
         // Short token penalty
         val shortToken = resolver.resolve("sal")
         // "sal" (len 3) fuzzy match to "salt" (len 4), distance 1
-        // Base conf = 1.0 - (1/4) = 0.75. Short token penalty scales by 0.75 -> 0.5625
-        assertEquals(0.5625f, shortToken.first().confidence, 0.001f)
+        // The blended OCR/edit score is then scaled by the short-token penalty.
+        val expectedShort = ((1.0f - (1.0f / 4.0f)) * 0.8f + 0.8f * 0.2f) * 0.75f
+        assertEquals(expectedShort, shortToken.first().confidence, 0.001f)
     }
 
     @Test
@@ -98,16 +100,15 @@ class TextIntelligenceTest {
         val pipeline = IngredientNormalizationPipeline(vocab)
         val input = "ingredients: sugar, salt, msg, citric acid"
 
-        val run1 = pipeline(input)
-        val run2 = pipeline(input)
+        val run1 = pipeline(Pair(input, 0.8f)).correction.output
+        val run2 = pipeline(Pair(input, 0.8f)).correction.output
 
         assertEquals(run1.size, run2.size)
         run1.forEachIndexed { i, res ->
             assertEquals(res.originalToken, run2[i].originalToken)
-            assertEquals(res.correctedToken, run2[i].correctedToken)
-            assertEquals(res.canonicalToken, run2[i].canonicalToken)
+            assertEquals(res.canonical, run2[i].canonical)
             assertEquals(res.confidence, run2[i].confidence, 0.001f)
-            assertEquals(res.matchType, run2[i].matchType)
+            assertEquals(res.failures, run2[i].failures)
         }
     }
 
@@ -118,9 +119,9 @@ class TextIntelligenceTest {
 
         // Input has NO commas, but has multi-word ingredients in the vocabulary (like "citric acid")
         val input = "ingredients: sugar salt citric acid msg"
-        val result = pipeline(input)
+        val result = pipeline(Pair(input, 0.8f)).correction.output
 
-        val canonicals = result.map { it.canonicalToken }
+        val canonicals = result.map { it.canonical }
 
         // Extractor falls back to splitting by space and merging "citric" + "acid"
         assertTrue(canonicals.contains("sugar"))
@@ -135,12 +136,12 @@ class TextIntelligenceTest {
         val pipeline = IngredientNormalizationPipeline(vocab)
 
         val input = "INGREDIENTS: SUGAR,\nSALT,\nCITRIC ACID"
-        val result = pipeline(input)
+        val result = pipeline(Pair(input, 0.8f)).correction.output
 
         assertEquals(3, result.size)
-        assertEquals("sugar", result[0].canonicalToken)
-        assertEquals("salt", result[1].canonicalToken)
-        assertEquals("citric acid", result[2].canonicalToken)
+        assertEquals("sugar", result[0].canonical)
+        assertEquals("salt", result[1].canonical)
+        assertEquals("citric acid", result[2].canonical)
     }
 
     @Test
@@ -171,7 +172,7 @@ class TextIntelligenceTest {
 
         // Empty strings, trailing periods, unbalanced parenthesis
         val malformed = "ingredients: sugar, ..., salt., water (enriched"
-        val result = pipeline(malformed)
+        val result = pipeline(Pair(malformed, 0.8f)).correction.output
 
         val originals = result.map { it.originalToken }
         assertTrue(originals.contains("sugar"))
@@ -186,15 +187,15 @@ class TextIntelligenceTest {
         val pipeline = IngredientNormalizationPipeline(vocab)
 
         val input = "ingredients: sugar, salt, sugar, salt"
-        val result = pipeline(input)
+        val result = pipeline(Pair(input, 0.8f)).correction.output
 
         // Duplicates preserved in raw output list
         assertEquals(4, result.size)
 
         // Stage distinct check
-        val deduplicated = result.distinctBy { it.canonicalToken }
+        val deduplicated = result.distinctBy { it.canonical }
         assertEquals(2, deduplicated.size)
-        assertEquals("sugar", deduplicated[0].canonicalToken)
-        assertEquals("salt", deduplicated[1].canonicalToken)
+        assertEquals("sugar", deduplicated[0].canonical)
+        assertEquals("salt", deduplicated[1].canonical)
     }
 }

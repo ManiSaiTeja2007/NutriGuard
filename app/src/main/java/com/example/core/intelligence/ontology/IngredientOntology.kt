@@ -180,8 +180,9 @@ object IngredientOntology {
     }
 
     /**
-     * Resolves E-number, abbreviations, or ingredient subclass to their canonical representation.
-     * Returns null if no ontology relationship is recorded.
+     * Resolves E-number and abbreviation aliases to their canonical ingredient names.
+     * Subclass relationships remain available through [isSubclassOf] but are not
+     * applied as automatic corrections, so exact vocabulary terms remain stable.
      */
     fun resolve(token: String): String? {
         val clean = token.lowercase(Locale.ROOT).trim()
@@ -191,9 +192,6 @@ object IngredientOntology {
 
         val abbrevMatch = abbreviations[clean]
         if (abbrevMatch != null) return abbrevMatch
-
-        val parentMatch = subClassRelations[clean]
-        if (parentMatch != null) return parentMatch
 
         return null
     }
