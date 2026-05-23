@@ -4,49 +4,73 @@
   "dataset_version": "1.0.0",
   "replay_schema_version": "1.0.0",
   "deterministic_seed": 42,
-  "generated_at": "2026-05-23T13:44:57.397668Z",
+  "generated_at": "2026-05-23T11:36:08.189731Z",
   "subset_name": "clean",
-  "file_count": 5,
+  "file_count": 8,
   "entries": [
     {
-      "image_path": "datasets/raw/clean_labels/label_000001.jpg",
-      "annotation_path": "datasets/raw/clean_labels/label_000001.txt",
+      "image_path": "datasets\\raw\\clean_labels\\label_000001.jpg",
+      "annotation_path": "datasets\\raw\\clean_labels\\label_000001.txt",
       "sha256": "9dacf9b93ef343cb1b10d45dcd84959c4448a68d0859d818cc3decfb7dbf619f",
       "category": "raw_clean",
       "width": 1,
       "height": 1
     },
     {
-      "image_path": "datasets/raw/clean_labels/label_000004.jpg",
-      "annotation_path": "datasets/raw/clean_labels/label_000004.txt",
+      "image_path": "datasets\\raw\\clean_labels\\label_000002.jpg",
+      "annotation_path": "datasets\\raw\\clean_labels\\label_000002.txt",
       "sha256": "9dacf9b93ef343cb1b10d45dcd84959c4448a68d0859d818cc3decfb7dbf619f",
       "category": "raw_clean",
       "width": 1,
       "height": 1
     },
     {
-      "image_path": "datasets/raw/clean_labels/label_000003.jpg",
-      "annotation_path": "datasets/raw/clean_labels/label_000003.txt",
+      "image_path": "datasets\\raw\\clean_labels\\label_000003.jpg",
+      "annotation_path": "datasets\\raw\\clean_labels\\label_000003.txt",
       "sha256": "9dacf9b93ef343cb1b10d45dcd84959c4448a68d0859d818cc3decfb7dbf619f",
       "category": "raw_clean",
       "width": 1,
       "height": 1
     },
     {
-      "image_path": "datasets/raw/clean_labels/label_000002.jpg",
-      "annotation_path": "datasets/raw/clean_labels/label_000002.txt",
+      "image_path": "datasets\\raw\\clean_labels\\label_000004.jpg",
+      "annotation_path": "datasets\\raw\\clean_labels\\label_000004.txt",
       "sha256": "9dacf9b93ef343cb1b10d45dcd84959c4448a68d0859d818cc3decfb7dbf619f",
       "category": "raw_clean",
       "width": 1,
       "height": 1
     },
     {
-      "image_path": "datasets/raw/clean_labels/label_000005.jpg",
-      "annotation_path": "datasets/raw/clean_labels/label_000005.txt",
+      "image_path": "datasets\\raw\\clean_labels\\label_000005.jpg",
+      "annotation_path": "datasets\\raw\\clean_labels\\label_000005.txt",
       "sha256": "9dacf9b93ef343cb1b10d45dcd84959c4448a68d0859d818cc3decfb7dbf619f",
       "category": "raw_clean",
       "width": 1,
       "height": 1
+    },
+    {
+      "image_path": "datasets\\raw\\clean_labels\\label_000006.jpg",
+      "annotation_path": "datasets\\raw\\clean_labels\\label_000006.txt",
+      "sha256": "2b259b461b340c73b81e2bbc099597a916004221ddf15cd9afa503c6c645854b",
+      "category": "raw_clean",
+      "width": 307,
+      "height": 400
+    },
+    {
+      "image_path": "datasets\\raw\\clean_labels\\label_000007.jpg",
+      "annotation_path": "datasets\\raw\\clean_labels\\label_000007.txt",
+      "sha256": "cc6a9820788774bda3f21152d548a84f68b23ed691d11f53673e2d4bb090c792",
+      "category": "raw_clean",
+      "width": 174,
+      "height": 400
+    },
+    {
+      "image_path": "datasets\\raw\\clean_labels\\label_000008.jpg",
+      "annotation_path": "datasets\\raw\\clean_labels\\label_000008.txt",
+      "sha256": "cd2f6077667f6f244bbe45dd44f22fbb183960acd43672fa14a6281f7678e2e7",
+      "category": "raw_clean",
+      "width": 400,
+      "height": 151
     }
   ]
 }
