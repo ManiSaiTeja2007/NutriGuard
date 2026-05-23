@@ -4,73 +4,49 @@
   "dataset_version": "1.0.0",
   "replay_schema_version": "1.0.0",
   "deterministic_seed": 42,
-  "generated_at": "2026-05-23T11:36:08.189731Z",
+  "generated_at": "2026-05-23T13:44:57.397668Z",
   "subset_name": "blurry",
-  "file_count": 8,
+  "file_count": 5,
   "entries": [
     {
-      "image_path": "datasets\\synthetic\\generated_blur\\label_000001.jpg",
-      "annotation_path": "datasets\\synthetic\\generated_blur\\label_000001.txt",
+      "image_path": "datasets/synthetic/generated_blur/label_000001.jpg",
+      "annotation_path": "datasets/synthetic/generated_blur/label_000001.txt",
       "sha256": "9dacf9b93ef343cb1b10d45dcd84959c4448a68d0859d818cc3decfb7dbf619f",
       "category": "synth_blur",
       "width": 1,
       "height": 1
     },
     {
-      "image_path": "datasets\\synthetic\\generated_blur\\label_000002.jpg",
-      "annotation_path": "datasets\\synthetic\\generated_blur\\label_000002.txt",
+      "image_path": "datasets/synthetic/generated_blur/label_000004.jpg",
+      "annotation_path": "datasets/synthetic/generated_blur/label_000004.txt",
       "sha256": "9dacf9b93ef343cb1b10d45dcd84959c4448a68d0859d818cc3decfb7dbf619f",
       "category": "synth_blur",
       "width": 1,
       "height": 1
     },
     {
-      "image_path": "datasets\\synthetic\\generated_blur\\label_000003.jpg",
-      "annotation_path": "datasets\\synthetic\\generated_blur\\label_000003.txt",
+      "image_path": "datasets/synthetic/generated_blur/label_000003.jpg",
+      "annotation_path": "datasets/synthetic/generated_blur/label_000003.txt",
       "sha256": "9dacf9b93ef343cb1b10d45dcd84959c4448a68d0859d818cc3decfb7dbf619f",
       "category": "synth_blur",
       "width": 1,
       "height": 1
     },
     {
-      "image_path": "datasets\\synthetic\\generated_blur\\label_000004.jpg",
-      "annotation_path": "datasets\\synthetic\\generated_blur\\label_000004.txt",
+      "image_path": "datasets/synthetic/generated_blur/label_000002.jpg",
+      "annotation_path": "datasets/synthetic/generated_blur/label_000002.txt",
       "sha256": "9dacf9b93ef343cb1b10d45dcd84959c4448a68d0859d818cc3decfb7dbf619f",
       "category": "synth_blur",
       "width": 1,
       "height": 1
     },
     {
-      "image_path": "datasets\\synthetic\\generated_blur\\label_000005.jpg",
-      "annotation_path": "datasets\\synthetic\\generated_blur\\label_000005.txt",
+      "image_path": "datasets/synthetic/generated_blur/label_000005.jpg",
+      "annotation_path": "datasets/synthetic/generated_blur/label_000005.txt",
       "sha256": "9dacf9b93ef343cb1b10d45dcd84959c4448a68d0859d818cc3decfb7dbf619f",
       "category": "synth_blur",
       "width": 1,
       "height": 1
-    },
-    {
-      "image_path": "datasets\\synthetic\\generated_blur\\label_000006.jpg",
-      "annotation_path": "datasets\\synthetic\\generated_blur\\label_000006.txt",
-      "sha256": "1120802421e3f08690cc43dad60d36fadcc586a3ed2c1e91c3b94eb82d9e3d1b",
-      "category": "synth_blur",
-      "width": 307,
-      "height": 400
-    },
-    {
-      "image_path": "datasets\\synthetic\\generated_blur\\label_000007.jpg",
-      "annotation_path": "datasets\\synthetic\\generated_blur\\label_000007.txt",
-      "sha256": "1b9a9c96d56fb0b9ebd19a4e86d054aa340280d5ea4435fe1adac6b5ee8d02c4",
-      "category": "synth_blur",
-      "width": 174,
-      "height": 400
-    },
-    {
-      "image_path": "datasets\\synthetic\\generated_blur\\label_000008.jpg",
-      "annotation_path": "datasets\\synthetic\\generated_blur\\label_000008.txt",
-      "sha256": "10d5290d4f1835cc6ee3c97cd4d8debeda00a5c5fa6f81da21a3a7d3d576fde8",
-      "category": "synth_blur",
-      "width": 400,
-      "height": 151
     }
   ]
 }

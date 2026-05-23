@@ -46,8 +46,8 @@ data class CorrectionResult(
  * Stage order (all side-effect free):
  *  1. Normalize       — lowercase, trim
  *  2. Phrase Normalize — PhraseNormalizer (hyphen collapse, split-compound repair)
- *  3. Ontology Mapping — E-numbers, abbreviations, subclass resolution
- *  4. Vocabulary Check — exact hit or base-form resolution
+ *  3. Ontology Mapping — E-numbers and abbreviations
+ *  4. Base-Form Resolution — OCR corruption map and multilingual hooks
  *  5. Phrase Correction  — handled pre-call by PhraseCorrector; single token arrives here
  *  6. Fuzzy Correction — Levenshtein with safe length-delta guard
  *  7. Ambiguity Check  — flag tied candidates
@@ -148,7 +148,7 @@ class OcrCorrectionEngine(
         val (phraseNorm, phraseTrace) = PhraseNormalizer.normalize(cleanToken)
         debugSteps.addAll(phraseTrace)
 
-        // Stage 3: Ontology Mapping (E-numbers / abbreviations / subclass)
+        // Stage 3: Ontology Mapping (E-numbers / abbreviations)
         val ontologyTarget = IngredientOntology.resolve(phraseNorm)
         if (ontologyTarget != null) {
             val category = IngredientOntology.categoryOf(ontologyTarget)
@@ -176,15 +176,15 @@ class OcrCorrectionEngine(
             )
         }
 
-        // Stage 4: Vocabulary exact / base-form check
-        if (vocabulary.contains(phraseNorm)) {
-            val baseForm = vocabulary.resolveBaseForm(phraseNorm)
+        // Stage 4: OCR corruption map / multilingual hook.
+        val baseForm = vocabulary.resolveBaseForm(phraseNorm)
+        if (baseForm != phraseNorm) {
             val category = IngredientOntology.categoryOf(baseForm)
-            debugSteps.add("vocabulary hit: \"$baseForm\"${if (category != null) " [category: $category]" else ""}")
+            debugSteps.add("base-form resolution: \"$baseForm\"${if (category != null) " [category: $category]" else ""}")
             debugSteps.add("canonicalized: $baseForm")
             return CorrectionResult(
                 canonical = baseForm,
-                confidence = 1.0f,
+                confidence = MatchConfidence.OCR_CORRECTION_MAP,
                 failures = emptyList(),
                 debugSteps = debugSteps,
                 ontologyCategory = category,
@@ -192,16 +192,14 @@ class OcrCorrectionEngine(
             )
         }
 
-        // Stage 5: Phrase correction (token already phrase-corrected by PhraseCorrector upstream;
-        //           this stage handles any residual vocabulary corruption map hits)
-        val baseForm = vocabulary.resolveBaseForm(phraseNorm)
-        if (baseForm != phraseNorm) {
-            val category = IngredientOntology.categoryOf(baseForm)
-            debugSteps.add("corruption map: \"$baseForm\"${if (category != null) " [category: $category]" else ""}")
-            debugSteps.add("canonicalized: $baseForm")
+        // Stage 5: Exact vocabulary check. Phrase correction was already handled upstream.
+        if (vocabulary.contains(phraseNorm)) {
+            val category = IngredientOntology.categoryOf(phraseNorm)
+            debugSteps.add("vocabulary hit: \"$phraseNorm\"${if (category != null) " [category: $category]" else ""}")
+            debugSteps.add("canonicalized: $phraseNorm")
             return CorrectionResult(
-                canonical = baseForm,
-                confidence = MatchConfidence.OCR_CORRECTION_MAP,
+                canonical = phraseNorm,
+                confidence = 1.0f,
                 failures = emptyList(),
                 debugSteps = debugSteps,
                 ontologyCategory = category,

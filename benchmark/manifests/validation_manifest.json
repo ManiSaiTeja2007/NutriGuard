@@ -4,49 +4,8 @@
   "dataset_version": "1.0.0",
   "replay_schema_version": "1.0.0",
   "deterministic_seed": 42,
-  "generated_at": "2026-05-23T11:36:08.189731Z",
+  "generated_at": "2026-05-23T13:44:57.397668Z",
   "subset_name": "validation",
-  "file_count": 5,
-  "entries": [
-    {
-      "image_path": "datasets\\raw\\clean_labels\\label_000006.jpg",
-      "annotation_path": "datasets\\raw\\clean_labels\\label_000006.txt",
-      "sha256": "2b259b461b340c73b81e2bbc099597a916004221ddf15cd9afa503c6c645854b",
-      "category": "raw_clean",
-      "width": 307,
-      "height": 400
-    },
-    {
-      "image_path": "datasets\\synthetic\\generated_blur\\label_000007.jpg",
-      "annotation_path": "datasets\\synthetic\\generated_blur\\label_000007.txt",
-      "sha256": "1b9a9c96d56fb0b9ebd19a4e86d054aa340280d5ea4435fe1adac6b5ee8d02c4",
-      "category": "synth_blur",
-      "width": 174,
-      "height": 400
-    },
-    {
-      "image_path": "datasets\\synthetic\\generated_rotation\\label_000007.jpg",
-      "annotation_path": "datasets\\synthetic\\generated_rotation\\label_000007.txt",
-      "sha256": "8c429cf634cbe4bf3b3bec4a5f0cbc80aea317ee637d347c5ba97025b1752eeb",
-      "category": "synth_rotation",
-      "width": 400,
-      "height": 174
-    },
-    {
-      "image_path": "datasets\\synthetic\\generated_noise\\label_000007.jpg",
-      "annotation_path": "datasets\\synthetic\\generated_noise\\label_000007.txt",
-      "sha256": "c4c42af2f7ecbcb7a4d0b94a47a271f3a060db816add57d34a61f5ac3b6a9cd9",
-      "category": "synth_noise",
-      "width": 174,
-      "height": 400
-    },
-    {
-      "image_path": "datasets\\synthetic\\generated_lowlight\\label_000001.jpg",
-      "annotation_path": "datasets\\synthetic\\generated_lowlight\\label_000001.txt",
-      "sha256": "e57d92af8f392fa8994b6910da7a5c86280881acb07fef3e94c02e1de511dab5",
-      "category": "synth_lowlight",
-      "width": 1,
-      "height": 1
-    }
-  ]
+  "file_count": 0,
+  "entries": []
 }

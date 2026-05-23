@@ -1,6 +1,7 @@
 package com.example.core.imaging
 
 import android.graphics.Bitmap
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.common.InputImage
 
@@ -45,6 +46,7 @@ sealed class ImageFrame {
         override val timestampNanos: Long get() = imageProxy.imageInfo.timestamp
         override val source: ImageSource get() = ImageSource.CAMERA_X
         
+        @androidx.annotation.OptIn(ExperimentalGetImage::class)
         override fun toInputImage(): InputImage {
             val mediaImage = checkNotNull(imageProxy.image) { "CameraX ImageProxy has no mediaImage" }
             return InputImage.fromMediaImage(mediaImage, rotationDegrees)

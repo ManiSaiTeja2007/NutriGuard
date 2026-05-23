@@ -46,6 +46,8 @@ class OcrPipeline(
         return try {
             when (frame) {
                 is ImageFrame.BitmapFrame -> {
+                    require(!frame.bitmap.isRecycled) { "Bitmap frame has already been recycled." }
+
                     // Tiled / Segmented OCR
                     val pieces = OcrSegmentation.segment(frame.bitmap)
                     val textResults = mutableListOf<Text>()
