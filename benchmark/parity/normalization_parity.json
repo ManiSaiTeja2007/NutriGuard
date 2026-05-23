@@ -1,0 +1,31 @@
+{
+  "pipeline_version": "1.0.0",
+  "stage": "normalization",
+  "test_cases": [
+    {
+      "id": "norm_001",
+      "input": "Ingredients: Sugar, Salt, Citric Acid.",
+      "expected": "ingredients: sugar, salt, citric acid"
+    },
+    {
+      "id": "norm_002",
+      "input": "Ingredients: citric-\n acid, msg",
+      "expected": "ingredients: citric acid, msg"
+    },
+    {
+      "id": "norm_003",
+      "input": "Sugar | Salt * MSG _ Lecithin • Water",
+      "expected": "sugar salt msg lecithin water"
+    },
+    {
+      "id": "norm_004",
+      "input": "slt   ,   suagr",
+      "expected": "slt, suagr"
+    },
+    {
+      "id": "norm_005",
+      "input": "Ingredients: sugar;\n  salt ; msg\t: 10g",
+      "expected": "ingredients: sugar; salt; msg: 10g"
+    }
+  ]
+}

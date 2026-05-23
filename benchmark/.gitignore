@@ -1,0 +1,15 @@
+# Ignore datasets containing raw, processed, and synthetic images/annotations
+datasets/
+
+# Ignore OpenFoodFacts downloader cache
+download_cache/
+
+# Ignore evaluation reports
+reports/
+
+# Ignore OCR and canonicalization replays
+replays/
+
+# Ignore Python compiled bytecode
+**/__pycache__/
+*.pyc

@@ -1,0 +1,21 @@
+{
+  "pipeline_version": "1.0.0",
+  "benchmark_schema_version": "1.0.0",
+  "dataset_version": "1.0.0",
+  "deterministic_seed": 42,
+  "simulate_ocr_corruption": true,
+  "stage_filtering": null,
+  "subset_selection": "all",
+  "replay": {
+    "enabled": true,
+    "save_all_replays": true,
+    "save_failed_replays": true
+  },
+  "report": {
+    "json": true,
+    "csv": true,
+    "markdown": true,
+    "output_dir": "benchmark/reports",
+    "replays_dir": "benchmark/replays"
+  }
+}

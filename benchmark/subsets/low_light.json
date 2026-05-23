@@ -1,0 +1,76 @@
+{
+  "pipeline_version": "1.0.0",
+  "benchmark_schema_version": "1.0.0",
+  "dataset_version": "1.0.0",
+  "replay_schema_version": "1.0.0",
+  "deterministic_seed": 42,
+  "generated_at": "2026-05-23T11:36:08.189731Z",
+  "subset_name": "low_light",
+  "file_count": 8,
+  "entries": [
+    {
+      "image_path": "datasets\\synthetic\\generated_lowlight\\label_000001.jpg",
+      "annotation_path": "datasets\\synthetic\\generated_lowlight\\label_000001.txt",
+      "sha256": "e57d92af8f392fa8994b6910da7a5c86280881acb07fef3e94c02e1de511dab5",
+      "category": "synth_lowlight",
+      "width": 1,
+      "height": 1
+    },
+    {
+      "image_path": "datasets\\synthetic\\generated_lowlight\\label_000002.jpg",
+      "annotation_path": "datasets\\synthetic\\generated_lowlight\\label_000002.txt",
+      "sha256": "e57d92af8f392fa8994b6910da7a5c86280881acb07fef3e94c02e1de511dab5",
+      "category": "synth_lowlight",
+      "width": 1,
+      "height": 1
+    },
+    {
+      "image_path": "datasets\\synthetic\\generated_lowlight\\label_000003.jpg",
+      "annotation_path": "datasets\\synthetic\\generated_lowlight\\label_000003.txt",
+      "sha256": "e57d92af8f392fa8994b6910da7a5c86280881acb07fef3e94c02e1de511dab5",
+      "category": "synth_lowlight",
+      "width": 1,
+      "height": 1
+    },
+    {
+      "image_path": "datasets\\synthetic\\generated_lowlight\\label_000004.jpg",
+      "annotation_path": "datasets\\synthetic\\generated_lowlight\\label_000004.txt",
+      "sha256": "e57d92af8f392fa8994b6910da7a5c86280881acb07fef3e94c02e1de511dab5",
+      "category": "synth_lowlight",
+      "width": 1,
+      "height": 1
+    },
+    {
+      "image_path": "datasets\\synthetic\\generated_lowlight\\label_000005.jpg",
+      "annotation_path": "datasets\\synthetic\\generated_lowlight\\label_000005.txt",
+      "sha256": "e57d92af8f392fa8994b6910da7a5c86280881acb07fef3e94c02e1de511dab5",
+      "category": "synth_lowlight",
+      "width": 1,
+      "height": 1
+    },
+    {
+      "image_path": "datasets\\synthetic\\generated_lowlight\\label_000006.jpg",
+      "annotation_path": "datasets\\synthetic\\generated_lowlight\\label_000006.txt",
+      "sha256": "8b18078478361bd2215eab50db14cda1d38c69362b235be39a4bc5d438d70f32",
+      "category": "synth_lowlight",
+      "width": 307,
+      "height": 400
+    },
+    {
+      "image_path": "datasets\\synthetic\\generated_lowlight\\label_000007.jpg",
+      "annotation_path": "datasets\\synthetic\\generated_lowlight\\label_000007.txt",
+      "sha256": "0e8ee643b97d05cd9b00f909331afd9a7ee8b1cb1045ed7af270e0cd00556226",
+      "category": "synth_lowlight",
+      "width": 174,
+      "height": 400
+    },
+    {
+      "image_path": "datasets\\synthetic\\generated_lowlight\\label_000008.jpg",
+      "annotation_path": "datasets\\synthetic\\generated_lowlight\\label_000008.txt",
+      "sha256": "bea44264b8e386c66bcf795ac8bd4dd80c8aa934dbab35ba8925d69fa471f0e7",
+      "category": "synth_lowlight",
+      "width": 400,
+      "height": 151
+    }
+  ]
+}

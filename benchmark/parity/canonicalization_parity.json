@@ -1,0 +1,36 @@
+{
+  "pipeline_version": "1.0.0",
+  "stage": "canonicalization",
+  "test_cases": [
+    {
+      "id": "canon_001",
+      "input": "sodium chloride",
+      "expected": "salt"
+    },
+    {
+      "id": "canon_002",
+      "input": "baking soda",
+      "expected": "sodium bicarbonate"
+    },
+    {
+      "id": "canon_003",
+      "input": "sucrose",
+      "expected": "sugar"
+    },
+    {
+      "id": "canon_004",
+      "input": "e621",
+      "expected": "monosodium glutamate"
+    },
+    {
+      "id": "canon_005",
+      "input": "vitamin c",
+      "expected": "ascorbic acid"
+    },
+    {
+      "id": "canon_006",
+      "input": "lecithine",
+      "expected": "soy lecithin"
+    }
+  ]
+}

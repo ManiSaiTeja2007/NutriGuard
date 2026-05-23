@@ -1,0 +1,10 @@
+# Treat all image formats as binary files to prevent CRLF line ending conversion
+*.jpg binary
+*.jpeg binary
+*.png binary
+
+# Exclude local directories from git archive exports
+datasets/ export-ignore
+download_cache/ export-ignore
+reports/ export-ignore
+replays/ export-ignore

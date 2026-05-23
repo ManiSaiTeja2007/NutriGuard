@@ -21,19 +21,3 @@ data class OcrSegment(
     val bitmap: Bitmap,
     val recycleAfterUse: Boolean
 )
-
-enum class MatchType {
-    EXACT,
-    ALIAS_MAP,
-    FUZZY,
-    UNKNOWN
-}
-
-data class NormalizedIngredient(
-    val originalToken: String,
-    val correctedToken: String,
-    val canonicalToken: String,
-    val confidence: Float,
-    val matchType: MatchType
-)
-

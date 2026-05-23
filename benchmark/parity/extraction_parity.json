@@ -1,0 +1,26 @@
+{
+  "pipeline_version": "1.0.0",
+  "stage": "extraction",
+  "test_cases": [
+    {
+      "id": "ext_001",
+      "input": "ingredients: sugar, salt, citric acid",
+      "expected": ["sugar", "salt", "citric acid"]
+    },
+    {
+      "id": "ext_002",
+      "input": "ingredients: sugar (with molasses), salt [sodium chloride], msg",
+      "expected": ["sugar (with molasses)", "salt [sodium chloride]", "msg"]
+    },
+    {
+      "id": "ext_003",
+      "input": "contains less than 2% of: calcium carbonate; riboflavin; niacin",
+      "expected": ["calcium carbonate", "riboflavin", "niacin"]
+    },
+    {
+      "id": "ext_004",
+      "input": "sugar salt msg",
+      "expected": ["sugar", "salt", "msg"]
+    }
+  ]
+}

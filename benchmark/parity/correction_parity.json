@@ -1,0 +1,108 @@
+{
+  "pipeline_version": "1.0.0",
+  "benchmark_schema_version": "1.0.0",
+  "stage": "correction",
+  "description": "Deterministic parity test vectors for OCR typo recovery and ingredient correction. Both the Android Kotlin pipeline and the Python benchmark pipeline MUST produce identical canonical outputs for each entry.",
+  "test_cases": [
+    {
+      "id": "corr_001",
+      "input": "slt",
+      "expected_canonical": "salt",
+      "expected_match_class": "ONTOLOGY_ABBREVIATION",
+      "notes": "Resolved via IngredientOntology abbreviations (highest priority path)"
+    },
+    {
+      "id": "corr_002",
+      "input": "suagr",
+      "expected_canonical": "sugar",
+      "expected_match_class": "VOCABULARY_CORRUPTION_MAP"
+    },
+    {
+      "id": "corr_003",
+      "input": "veg oil",
+      "expected_canonical": "vegetable oil",
+      "expected_match_class": "VOCABULARY_CORRUPTION_MAP"
+    },
+    {
+      "id": "corr_004",
+      "input": "veg oi1",
+      "expected_canonical": "vegetable oil",
+      "expected_match_class": "VOCABULARY_CORRUPTION_MAP"
+    },
+    {
+      "id": "corr_005",
+      "input": "mono sodium glutamat",
+      "expected_canonical": "monosodium glutamate",
+      "expected_match_class": "VOCABULARY_CORRUPTION_MAP"
+    },
+    {
+      "id": "corr_006",
+      "input": "acidity reg",
+      "expected_canonical": "acidity regulator",
+      "expected_match_class": "VOCABULARY_CORRUPTION_MAP"
+    },
+    {
+      "id": "corr_007",
+      "input": "msg",
+      "expected_canonical": "monosodium glutamate",
+      "expected_match_class": "ONTOLOGY_ABBREVIATION"
+    },
+    {
+      "id": "corr_008",
+      "input": "e330",
+      "expected_canonical": "citric acid",
+      "expected_match_class": "ONTOLOGY_ENUMBER"
+    },
+    {
+      "id": "corr_009",
+      "input": "e621",
+      "expected_canonical": "monosodium glutamate",
+      "expected_match_class": "ONTOLOGY_ENUMBER"
+    },
+    {
+      "id": "corr_010",
+      "input": "e300",
+      "expected_canonical": "ascorbic acid",
+      "expected_match_class": "ONTOLOGY_ENUMBER"
+    },
+    {
+      "id": "corr_011",
+      "input": "hfcs",
+      "expected_canonical": "high fructose corn syrup",
+      "expected_match_class": "ONTOLOGY_ABBREVIATION"
+    },
+    {
+      "id": "corr_012",
+      "input": "sodium chloride",
+      "expected_canonical": "sodium chloride",
+      "expected_match_class": "VOCABULARY_EXACT",
+      "notes": "Exact vocabulary hit, no correction needed"
+    },
+    {
+      "id": "corr_013",
+      "input": "wasser",
+      "expected_canonical": "water",
+      "expected_match_class": "VOCABULARY_MULTILINGUAL"
+    },
+    {
+      "id": "corr_014",
+      "input": "sel",
+      "expected_canonical": "salt",
+      "expected_match_class": "VOCABULARY_MULTILINGUAL"
+    },
+    {
+      "id": "corr_015",
+      "input": "xugar",
+      "expected_canonical": "sugar",
+      "expected_match_class": "FUZZY_MATCH",
+      "notes": "Levenshtein distance 1; safe length-delta"
+    },
+    {
+      "id": "corr_016",
+      "input": "salt",
+      "expected_canonical": "salt",
+      "expected_match_class": "VOCABULARY_EXACT",
+      "notes": "MUST NOT be corrected to sulfate - safe length guard test"
+    }
+  ]
+}
