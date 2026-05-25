@@ -339,4 +339,99 @@ object OcrPreprocessor {
         dest.setPixels(outPixels, 0, width, 0, 0, width, height)
         return dest
     }
+
+    /**
+     * Upscales a bitmap to target dimensions using bilinear interpolation.
+     */
+    fun upscaleBilinear(src: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
+        return Bitmap.createScaledBitmap(src, targetWidth, targetHeight, true)
+    }
+
+    /**
+     * Computes Sobel gradient magnitude for the image.
+     */
+    fun applySobel(src: Bitmap): Bitmap {
+        val width = src.width
+        val height = src.height
+        val pixels = IntArray(width * height)
+        src.getPixels(pixels, 0, width, 0, 0, width, height)
+        
+        val luma = FloatArray(width * height)
+        for (i in pixels.indices) {
+            val p = pixels[i]
+            val r = (p shr 16) and 0xFF
+            val g = (p shr 8) and 0xFF
+            val b = p and 0xFF
+            luma[i] = 0.299f * r + 0.587f * g + 0.114f * b
+        }
+        
+        val outPixels = IntArray(width * height)
+        for (y in 1 until height - 1) {
+            for (x in 1 until width - 1) {
+                val idx = y * width + x
+                
+                val gx = -luma[idx - width - 1] + luma[idx - width + 1] -
+                         2f * luma[idx - 1] + 2f * luma[idx + 1] -
+                         luma[idx + width - 1] + luma[idx + width + 1]
+                         
+                val gy = -luma[idx - width - 1] - 2f * luma[idx - width] - luma[idx - width + 1] +
+                         luma[idx + width - 1] + 2f * luma[idx + width] + luma[idx + width + 1]
+                         
+                val gVal = kotlin.math.sqrt(gx * gx + gy * gy).toInt().coerceIn(0, 255)
+                outPixels[idx] = (0xFF shl 24) or (gVal shl 16) or (gVal shl 8) or gVal
+            }
+        }
+        val dest = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        dest.setPixels(outPixels, 0, width, 0, 0, width, height)
+        return dest
+    }
+
+    /**
+     * Enhances edges by blending the original image with its Sobel gradients.
+     */
+    fun applyEdgeEnhancement(src: Bitmap, amount: Float = 0.5f): Bitmap {
+        val width = src.width
+        val height = src.height
+        val pixels = IntArray(width * height)
+        src.getPixels(pixels, 0, width, 0, 0, width, height)
+        
+        val luma = FloatArray(width * height)
+        for (i in pixels.indices) {
+            val p = pixels[i]
+            val r = (p shr 16) and 0xFF
+            val g = (p shr 8) and 0xFF
+            val b = p and 0xFF
+            luma[i] = 0.299f * r + 0.587f * g + 0.114f * b
+        }
+        
+        val outPixels = IntArray(width * height)
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val idx = y * width + x
+                if (y == 0 || y == height - 1 || x == 0 || x == width - 1) {
+                    outPixels[idx] = pixels[idx]
+                    continue
+                }
+                
+                val gx = -luma[idx - width - 1] + luma[idx - width + 1] -
+                         2f * luma[idx - 1] + 2f * luma[idx + 1] -
+                         luma[idx + width - 1] + luma[idx + width + 1]
+                         
+                val gy = -luma[idx - width - 1] - 2f * luma[idx - width] - luma[idx - width + 1] +
+                         luma[idx + width - 1] + 2f * luma[idx + width] + luma[idx + width + 1]
+                         
+                val gVal = kotlin.math.sqrt(gx * gx + gy * gy) * amount
+                
+                val p = pixels[idx]
+                val r = (((p shr 16) and 0xFF) + gVal).toInt().coerceIn(0, 255)
+                val g = (((p shr 8) and 0xFF) + gVal).toInt().coerceIn(0, 255)
+                val b = ((p and 0xFF) + gVal).toInt().coerceIn(0, 255)
+                
+                outPixels[idx] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+            }
+        }
+        val dest = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        dest.setPixels(outPixels, 0, width, 0, 0, width, height)
+        return dest
+    }
 }

@@ -1,8 +1,8 @@
 package com.example.ui.features.scan
 
-import android.Manifest
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,43 +18,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
-import com.example.core.ocr.OCRWord
-import com.example.core.ocr.OCRLine
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.core.frame.FrameAnalysisResult
-import com.example.core.frame.FramePipeline
-import com.example.core.imaging.ImageFrame
-import com.example.core.imaging.ImageSource
-import com.example.core.ocr.OcrPipeline
 import com.example.core.ocr.OcrResult
-import com.example.core.ingredient.*
-import com.example.core.intelligence.vocabulary.IngredientVocabulary
-import com.example.core.intelligence.correction.FailureType
-import com.example.core.intelligence.correction.CorrectionResult
+import com.example.core.ocr.preprocessing.OcrPreprocessor
 import com.example.data.AppSettings
-import com.example.core.replay.ReplayStorageHelper
 import com.example.ui.CameraPreview
 import com.example.ui.navigation.NavController
-import com.example.ui.navigation.Screen
-import com.example.ui.state.CameraValidationState
 import com.example.utils.LoadedBitmapAsset
 import com.example.utils.TestLabelAssetRepository
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,16 +44,10 @@ fun ScanScreen(
     hasCameraPermission: Boolean,
     onRequestCameraPermission: () -> Unit,
     navController: NavController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: ScanViewModel = viewModel()
 ) {
-    var mode by remember { mutableStateOf(if (AppSettings.debugMode) DebugMode.TestImages else DebugMode.LiveCamera) }
-
-    // Synchronize mode if debug settings change in the background
-    LaunchedEffect(AppSettings.debugMode) {
-        if (!AppSettings.debugMode) {
-            mode = DebugMode.LiveCamera
-        }
-    }
+    val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         topBar = {
@@ -103,35 +79,35 @@ fun ScanScreen(
                 ) {
                     ModeButton(
                         text = "Live Camera",
-                        selected = mode == DebugMode.LiveCamera,
-                        onClick = { mode = DebugMode.LiveCamera }
+                        selected = uiState.mode == DebugMode.LiveCamera,
+                        onClick = { viewModel.setMode(DebugMode.LiveCamera) }
                     )
                     ModeButton(
                         text = "Test Images",
-                        selected = mode == DebugMode.TestImages,
-                        onClick = { mode = DebugMode.TestImages }
+                        selected = uiState.mode == DebugMode.TestImages,
+                        onClick = { viewModel.setMode(DebugMode.TestImages) }
                     )
                 }
             }
 
-            when (mode) {
+            when (uiState.mode) {
                 DebugMode.LiveCamera -> LiveCameraPanel(
                     hasCameraPermission = hasCameraPermission,
                     onRequestCameraPermission = onRequestCameraPermission,
                     navController = navController,
+                    viewModel = viewModel,
+                    uiState = uiState,
                     modifier = Modifier.fillMaxSize()
                 )
                 DebugMode.TestImages -> TestImagesPanel(
                     navController = navController,
+                    viewModel = viewModel,
+                    uiState = uiState,
                     modifier = Modifier.fillMaxSize()
                 )
             }
         }
     }
-}
-
-enum class DebugMode {
-    LiveCamera, TestImages
 }
 
 @Composable
@@ -162,20 +138,11 @@ private fun LiveCameraPanel(
     hasCameraPermission: Boolean,
     onRequestCameraPermission: () -> Unit,
     navController: NavController,
+    viewModel: ScanViewModel,
+    uiState: ScanUiState,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    var latestFrame by remember { mutableStateOf<FrameAnalysisResult?>(null) }
-    var latestOcr by remember { mutableStateOf<OcrResult?>(null) }
-    val framePipeline = remember { FramePipeline() }
-    val ocrPipeline = remember { OcrPipeline() }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            ocrPipeline.close()
-        }
-    }
 
     if (!hasCameraPermission) {
         Column(
@@ -202,10 +169,10 @@ private fun LiveCameraPanel(
 
     Box(modifier = modifier) {
         CameraPreview(
-            framePipeline = framePipeline,
-            onFrameValidated = { latestFrame = it },
-            ocrPipeline = ocrPipeline,
-            onOcrResult = { latestOcr = it },
+            framePipeline = viewModel.framePipelineInstance,
+            onFrameValidated = { viewModel.setLatestFrame(it) },
+            ocrPipeline = viewModel.ocrPipelineInstance,
+            onOcrResult = { viewModel.setLatestOcr(it) },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -216,7 +183,7 @@ private fun LiveCameraPanel(
                 .background(Color.Black.copy(alpha = 0.72f))
                 .padding(16.dp)
         ) {
-            val ocrText = latestOcr?.text ?: ""
+            val ocrText = uiState.latestOcr?.text ?: ""
             Text(
                 text = if (ocrText.isBlank()) "Looking for ingredients label..." else "Label detected!",
                 color = Color.White,
@@ -237,19 +204,7 @@ private fun LiveCameraPanel(
 
             Button(
                 onClick = {
-                    val currentOcr = latestOcr
-                    if (currentOcr == null || currentOcr.text.isBlank()) {
-                        Toast.makeText(context, "No text detected yet.", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-                    coroutineScope.launch {
-                        processAndNavigate(
-                            context = context,
-                            sourceName = "Live Camera Scan",
-                            ocrResult = currentOcr,
-                            navController = navController
-                        )
-                    }
+                    viewModel.ingestLiveCamera(context, navController)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = ocrText.isNotBlank(),
@@ -264,72 +219,25 @@ private fun LiveCameraPanel(
     }
 }
 
+enum class PreprocessingFilter {
+    Raw, Contrast, Threshold
+}
+
 @Composable
 private fun TestImagesPanel(
     navController: NavController,
+    viewModel: ScanViewModel,
+    uiState: ScanUiState,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
     val repository = remember(context) { TestLabelAssetRepository(context) }
     val imageNames = remember(repository) { repository.listImageNames() }
-    val framePipeline = remember { FramePipeline(throttleMs = 0L) }
-    var ocrPipeline by remember { mutableStateOf<OcrPipeline?>(null) }
-    var selectedIndex by remember { mutableIntStateOf(0) }
-    var state by remember { mutableStateOf(CameraValidationState()) }
-    var loading by remember { mutableStateOf(false) }
+    var selectedFilter by remember { mutableStateOf(PreprocessingFilter.Raw) }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            ocrPipeline?.close()
-        }
-    }
-
-    LaunchedEffect(imageNames, selectedIndex) {
-        if (imageNames.isEmpty()) {
-            state = CameraValidationState(status = "No test label assets found")
-            return@LaunchedEffect
-        }
-
-        val fileName = imageNames[selectedIndex.coerceIn(imageNames.indices)]
-        state = CameraValidationState(status = "Loading bitmap")
-
-        state = try {
-            val asset = withContext(Dispatchers.IO) {
-                repository.load(fileName)
-            }
-            val frame = ImageFrame.BitmapFrame(
-                bitmap = asset.bitmap,
-                rotationDegrees = asset.rotationDegrees,
-                timestampNanos = System.nanoTime(),
-                source = ImageSource.TEST_ASSET
-            )
-            val frameResult = requireNotNull(framePipeline(frame)) {
-                "Frame pipeline throttled test asset unexpectedly."
-            }
-            val pipeline = ocrPipeline ?: OcrPipeline().also {
-                ocrPipeline = it
-            }
-            val ocrResult = withContext(Dispatchers.Default) {
-                pipeline(Pair(frame, frameResult))
-            }
-
-            CameraValidationState(
-                asset = asset,
-                frameResult = frameResult,
-                ocrResult = ocrResult,
-                status = when {
-                    ocrResult.skippedReason != null -> "Frame valid, OCR skipped"
-                    ocrResult.segmentsProcessed > 1 -> "Frame valid, OCR merged ${ocrResult.segmentsProcessed} segments"
-                    ocrResult.text.isBlank() -> "Frame valid, OCR returned no text"
-                    else -> "Frame valid, OCR complete"
-                }
-            )
-        } catch (error: Throwable) {
-            CameraValidationState(
-                status = "Pipeline failed",
-                errorMessage = error.message ?: error::class.java.simpleName
-            )
+    LaunchedEffect(imageNames) {
+        if (imageNames.isNotEmpty() && uiState.imageNames.isEmpty()) {
+            viewModel.initializeTestImages(imageNames, repository)
         }
     }
 
@@ -341,14 +249,72 @@ private fun TestImagesPanel(
     ) {
         if (imageNames.isEmpty()) {
             Text(
-                text = state.status,
+                text = uiState.validationState.status,
                 style = MaterialTheme.typography.bodyLarge,
                 color = Color(0xFF3D4946)
             )
             return@Column
         }
 
-        TestImagePreview(state.asset, state.ocrResult)
+        // Debugging filters segmented buttons
+        if (AppSettings.ocrDiagnostics) {
+            Text(
+                text = "Show Preprocessed Preview:",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF5D6E6A)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                PreprocessingFilter.values().forEach { filter ->
+                    val isSelected = selectedFilter == filter
+                    val colors = if (isSelected) {
+                        ButtonDefaults.buttonColors(containerColor = Color(0xFF116A5B))
+                    } else {
+                        ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF163832))
+                    }
+                    if (isSelected) {
+                        Button(
+                            onClick = { selectedFilter = filter },
+                            colors = colors,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = when (filter) {
+                                    PreprocessingFilter.Raw -> "Raw Label"
+                                    PreprocessingFilter.Contrast -> "Contrast"
+                                    PreprocessingFilter.Threshold -> "Threshold"
+                                },
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { selectedFilter = filter },
+                            colors = colors,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = when (filter) {
+                                    PreprocessingFilter.Raw -> "Raw Label"
+                                    PreprocessingFilter.Contrast -> "Contrast"
+                                    PreprocessingFilter.Threshold -> "Threshold"
+                                },
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        TestImagePreview(
+            asset = uiState.validationState.asset,
+            ocrResult = uiState.validationState.ocrResult,
+            filter = selectedFilter
+        )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -357,7 +323,7 @@ private fun TestImagesPanel(
         ) {
             OutlinedButton(
                 onClick = {
-                    selectedIndex = if (selectedIndex == 0) imageNames.lastIndex else selectedIndex - 1
+                    viewModel.selectPreviousTestImage(repository)
                 },
                 modifier = Modifier.width(110.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF163832))
@@ -365,14 +331,14 @@ private fun TestImagesPanel(
                 Text(text = "Previous")
             }
             Text(
-                text = "${selectedIndex + 1} / ${imageNames.size}",
+                text = "${uiState.selectedIndex + 1} / ${imageNames.size}",
                 style = MaterialTheme.typography.labelLarge,
                 color = Color(0xFF3D4946),
                 fontWeight = FontWeight.Bold
             )
             Button(
                 onClick = {
-                    selectedIndex = if (selectedIndex == imageNames.lastIndex) 0 else selectedIndex + 1
+                    viewModel.selectNextTestImage(repository)
                 },
                 modifier = Modifier.width(110.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF116A5B))
@@ -381,34 +347,21 @@ private fun TestImagesPanel(
             }
         }
 
-        val ocrResult = state.ocrResult
+        val ocrResult = uiState.validationState.ocrResult
         val ocrText = ocrResult?.text ?: ""
 
         Button(
             onClick = {
-                if (ocrResult == null || ocrText.isBlank()) {
-                    Toast.makeText(context, "No text detected in test image.", Toast.LENGTH_SHORT).show()
-                    return@Button
-                }
-                loading = true
-                coroutineScope.launch {
-                    processAndNavigate(
-                        context = context,
-                        sourceName = state.asset?.fileName ?: "Test Image",
-                        ocrResult = ocrResult,
-                        navController = navController
-                    )
-                    loading = false
-                }
+                viewModel.ingestTestImage(context, navController)
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = ocrText.isNotBlank() && !loading,
+            enabled = ocrText.isNotBlank() && !uiState.isIngesting,
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF116A5B),
                 disabledContainerColor = Color(0xFF2C4C46)
             )
         ) {
-            if (loading) {
+            if (uiState.isIngesting) {
                 CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
             } else {
                 Text("Ingest Test Image")
@@ -420,14 +373,14 @@ private fun TestImagesPanel(
         if (AppSettings.ocrDiagnostics) {
             com.example.ui.components.CameraMetadataPanel(
                 title = "Test Image Metadata",
-                fileName = state.asset?.fileName ?: imageNames[selectedIndex],
-                frameResult = state.frameResult,
-                ocrResult = state.ocrResult,
-                status = state.status,
-                errorMessage = state.errorMessage
+                fileName = uiState.validationState.asset?.fileName ?: imageNames[uiState.selectedIndex],
+                frameResult = uiState.validationState.frameResult,
+                ocrResult = uiState.validationState.ocrResult,
+                status = uiState.validationState.status,
+                errorMessage = uiState.validationState.errorMessage
             )
             Spacer(modifier = Modifier.height(4.dp))
-            com.example.ui.components.CameraOcrOutputPanel(state.ocrResult)
+            com.example.ui.components.CameraOcrOutputPanel(uiState.validationState.ocrResult)
         }
     }
 }
@@ -435,7 +388,8 @@ private fun TestImagesPanel(
 @Composable
 private fun TestImagePreview(
     asset: LoadedBitmapAsset?,
-    ocrResult: OcrResult?
+    ocrResult: OcrResult?,
+    filter: PreprocessingFilter
 ) {
     BoxWithConstraints(
         modifier = Modifier
@@ -449,7 +403,23 @@ private fun TestImagePreview(
         if (asset == null) {
             Text(text = "Loading preview", color = Color(0xFF3D4946))
         } else {
-            val imageBitmap = remember(asset.bitmap) { asset.bitmap.asImageBitmap() }
+            val preprocessedBitmap = remember(asset.bitmap, filter) {
+                when (filter) {
+                    PreprocessingFilter.Raw -> asset.bitmap
+                    PreprocessingFilter.Contrast -> {
+                        OcrPreprocessor.toGrayscale(asset.bitmap)
+                            .let { OcrPreprocessor.normalizeBrightness(it) }
+                            .let { OcrPreprocessor.applyClahe(it) }
+                            .let { OcrPreprocessor.applySharpen(it) }
+                    }
+                    PreprocessingFilter.Threshold -> {
+                        OcrPreprocessor.toGrayscale(asset.bitmap)
+                            .let { OcrPreprocessor.applyAdaptiveThreshold(it) }
+                    }
+                }
+            }
+            val imageBitmap = remember(preprocessedBitmap) { preprocessedBitmap.asImageBitmap() }
+
             Image(
                 bitmap = imageBitmap,
                 contentDescription = asset.fileName,
@@ -555,6 +525,87 @@ private fun TestImagePreview(
                                 }
                             )
                         }
+
+                        // 4. Draw tile boundaries (dashed orange stroke) if tiled OCR was used
+                        ocrResult.tileRegions.forEach { rect ->
+                            val left = offsetX + rect.left * scale
+                            val top = offsetY + rect.top * scale
+                            val right = offsetX + rect.right * scale
+                            val bottom = offsetY + rect.bottom * scale
+
+                            drawRect(
+                                color = Color(0xFFE67E22),
+                                topLeft = Offset(left, top),
+                                size = Size(right - left, bottom - top),
+                                style = Stroke(
+                                    width = 1.5f.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(
+                                        floatArrayOf(15f, 10f), 0f
+                                    )
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (AppSettings.ocrDiagnostics && ocrResult != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFE67E22),
+                            tonalElevation = 2.dp
+                        ) {
+                            Text(
+                                text = ocrResult.routedStrategy,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFF116A5B),
+                            tonalElevation = 2.dp
+                        ) {
+                            Text(
+                                text = ocrResult.complexityRating,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color.Black.copy(alpha = 0.6f),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = "Blur: %.1f | Luma: %.1f | Contrast: %.1f".format(
+                                ocrResult.blurScore,
+                                ocrResult.brightnessScore,
+                                ocrResult.contrastScore
+                            ),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White
+                        )
                     }
                 }
             }
@@ -584,128 +635,4 @@ private fun calculateFitScaleAndOffset(
     val offsetY = (containerH - actualH) / 2f
 
     return Pair(scale, Pair(offsetX, offsetY))
-}
-
-private suspend fun processAndNavigate(
-    context: Context,
-    sourceName: String,
-    ocrResult: OcrResult,
-    navController: NavController
-) = withContext(Dispatchers.Default) {
-    val ocrText = ocrResult.text
-    val ocrLatency = ocrResult.processingLatencyMs
-    val ocrConfidence = ocrResult.averageConfidence ?: 0.8f
-
-    val vocabulary = IngredientVocabulary()
-    val pipeline = IngredientNormalizationPipeline(vocabulary)
-
-    val ingestionResult = pipeline(Pair(ocrText, ocrConfidence))
-
-    // JSON serialization for results passing
-    val canonicalJson = JSONArray().apply {
-        ingestionResult.correction.output.forEach { result ->
-            put(JSONObject().apply {
-                put("canonical", result.canonical)
-                put("confidence", result.confidence.toDouble())
-                put("originalToken", result.originalToken)
-                put("ontologyCategory", result.ontologyCategory ?: "")
-                put("disambiguationRule", result.disambiguationRule ?: "")
-                put("groupPath", result.groupPath)
-
-                val stepsArr = JSONArray()
-                result.debugSteps.forEach { stepsArr.put(it) }
-                put("debugSteps", stepsArr)
-
-                val failsArr = JSONArray()
-                result.failures.forEach { failsArr.put(it.name) }
-                put("failures", failsArr)
-
-                val phraseArr = JSONArray()
-                result.phraseWindow.forEach { phraseArr.put(it) }
-                put("phraseWindow", phraseArr)
-            })
-        }
-    }.toString()
-
-    val latenciesMap = mapOf(
-        "ocr" to ocrLatency,
-        "normalization" to ingestionResult.normalization.latencyMs,
-        "extraction" to ingestionResult.extraction.latencyMs,
-        "grouping" to ingestionResult.grouping.latencyMs,
-        "phrase_correction" to ingestionResult.phraseCorrection.latencyMs,
-        "correction" to ingestionResult.correction.latencyMs
-    )
-    val latenciesJson = JSONObject().apply {
-        latenciesMap.forEach { (k, v) -> put(k, v) }
-    }.toString()
-
-    // Determine failures & Save replay if enabled
-    val failuresList = mutableListOf<Map<String, Any>>()
-
-    // Add stage level failures
-    ingestionResult.normalization.failures.forEach { fail ->
-        failuresList.add(mapOf(
-            "failure_type" to fail.name,
-            "stage" to "normalization",
-            "details" to "Normalization failed: output was blank"
-        ))
-    }
-    ingestionResult.extraction.failures.forEach { fail ->
-        failuresList.add(mapOf(
-            "failure_type" to fail.name,
-            "stage" to "extraction",
-            "details" to "Extraction failed: zero tokens parsed from input"
-        ))
-    }
-    ingestionResult.correction.output.forEach { res ->
-        res.failures.forEach { fail ->
-            failuresList.add(mapOf(
-                "failure_type" to fail.name,
-                "stage" to "correction",
-                "details" to when(fail) {
-                    FailureType.UNKNOWN_INGREDIENT_FAILURE -> "Unknown ingredient \"${res.originalToken}\" not found in vocabulary or ontology."
-                    FailureType.AMBIGUOUS_MATCH_FAILURE -> "Ambiguous match detected for \"${res.originalToken}\"."
-                    FailureType.FUZZY_CORRECTION_FAILURE -> "Fuzzy correction quality exception for \"${res.originalToken}\"."
-                    FailureType.LOW_CONFIDENCE_CORRECTION_FAILURE -> "Low correction confidence for \"${res.originalToken}\" -> \"${res.canonical}\"."
-                    else -> "Correction exception detected."
-                }
-            ))
-        }
-    }
-
-    if (AppSettings.replaySaving && failuresList.isNotEmpty()) {
-        val metrics = mapOf(
-            "avg_confidence" to (ingestionResult.correction.output.map { it.confidence }.average().takeIf { !it.isNaN() } ?: 0.0),
-            "ingredient_count" to ingestionResult.correction.output.size.toDouble(),
-            "ocr_character_count" to ocrText.length.toDouble()
-        )
-        ReplayStorageHelper.saveReplay(
-            context = context,
-            sourceImage = sourceName,
-            ocrOutput = ocrText,
-            normalizedText = ingestionResult.normalization.output,
-            extractedIngredients = ingestionResult.extraction.output,
-            canonicalIngredients = ingestionResult.correction.output,
-            metrics = metrics,
-            failures = failuresList,
-            latencyMetrics = latenciesMap,
-            ocrWords = ocrResult.ocrWords,
-            reconstructedLines = ocrResult.reconstructedLines,
-            detectedParagraphs = ocrResult.detectedParagraphs,
-            passesRun = ocrResult.passesRun
-        )
-    }
-
-    // Results screen navigation arguments
-    val routeArgs = Screen.Results(
-        rawOcrText = ocrText,
-        normalizedText = ingestionResult.normalization.output,
-        extractedTokens = ingestionResult.extraction.output,
-        canonicalJson = canonicalJson,
-        latencyJson = latenciesJson
-    )
-
-    withContext(Dispatchers.Main) {
-        navController.navigateTo(routeArgs)
-    }
 }

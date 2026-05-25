@@ -4,6 +4,8 @@ import com.example.core.ingredient.*
 import com.example.core.intelligence.alias.AliasResolver
 import com.example.core.intelligence.vocabulary.IngredientVocabulary
 import com.example.core.normalization.TextNormalizer
+import com.example.core.ocr.routing.OCRPipelineRouter
+import com.example.core.ocr.routing.OCRComplexityAnalyzer
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -197,5 +199,43 @@ class TextIntelligenceTest {
         assertEquals(2, deduplicated.size)
         assertEquals("sugar", deduplicated[0].canonical)
         assertEquals("salt", deduplicated[1].canonical)
+    }
+
+    @Test
+    fun testOCRPipelineRouting() {
+        val lowComplexityMetrics = OCRComplexityAnalyzer.AnalysisMetrics(
+            brightness = 120f,
+            contrast = 35f,
+            blurScore = 15f,
+            estimatedTextDensity = 0.05f,
+            complexityRating = "LOW"
+        )
+
+        // 1. Tiny images upscale routing
+        val upscaleStrategy = OCRPipelineRouter.route(100, 100, lowComplexityMetrics)
+        assertEquals(OCRPipelineRouter.OcrStrategy.UPSCALE, upscaleStrategy)
+
+        // 2. Wide aspect ratio tiled routing
+        val tiledStrategy = OCRPipelineRouter.route(2000, 500, lowComplexityMetrics)
+        assertEquals(OCRPipelineRouter.OcrStrategy.TILED, tiledStrategy)
+
+        // 3. Blurry image routing
+        val blurryMetrics = lowComplexityMetrics.copy(blurScore = 4.5f)
+        val blurryStrategy = OCRPipelineRouter.route(640, 480, blurryMetrics)
+        assertEquals(OCRPipelineRouter.OcrStrategy.SHARPENED, blurryStrategy)
+
+        // 4. Low light image routing
+        val lowLightMetrics = lowComplexityMetrics.copy(brightness = 75f)
+        val lowLightStrategy = OCRPipelineRouter.route(640, 480, lowLightMetrics)
+        assertEquals(OCRPipelineRouter.OcrStrategy.LOW_LIGHT, lowLightStrategy)
+
+        // 5. Low contrast image routing
+        val lowContrastMetrics = lowComplexityMetrics.copy(contrast = 18f)
+        val lowContrastStrategy = OCRPipelineRouter.route(640, 480, lowContrastMetrics)
+        assertEquals(OCRPipelineRouter.OcrStrategy.THRESHOLDED, lowContrastStrategy)
+
+        // 6. Normal image routing
+        val normalStrategy = OCRPipelineRouter.route(640, 480, lowComplexityMetrics)
+        assertEquals(OCRPipelineRouter.OcrStrategy.STANDARD, normalStrategy)
     }
 }

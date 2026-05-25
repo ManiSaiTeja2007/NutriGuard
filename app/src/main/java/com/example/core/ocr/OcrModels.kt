@@ -33,7 +33,16 @@ data class OcrResult(
     val ocrWords: List<OCRWord> = emptyList(),
     val reconstructedLines: List<OCRLine> = emptyList(),
     val detectedParagraphs: List<OCRLine> = emptyList(),
-    val passesRun: List<String> = emptyList()
+    val passesRun: List<String> = emptyList(),
+    val failures: List<com.example.core.intelligence.correction.FailureType> = emptyList(),
+    
+    // Adaptive OCR routing diagnostics
+    val blurScore: Float = 0f,
+    val contrastScore: Float = 0f,
+    val brightnessScore: Float = 0f,
+    val complexityRating: String = "LOW",
+    val routedStrategy: String = "STANDARD",
+    val tileRegions: List<Rect> = emptyList()
 )
 
 data class OcrSegment(

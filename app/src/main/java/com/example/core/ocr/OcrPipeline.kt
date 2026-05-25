@@ -14,7 +14,12 @@ import com.example.core.pipeline.PipelineStage
 import com.example.core.ocr.preprocessing.OcrPreprocessor
 import com.example.core.ocr.reconstruction.OCRLineReconstructor
 import com.example.core.ocr.reconstruction.IngredientRegionDetector
+import com.example.core.ocr.validation.OcrInputValidator
+import com.example.core.intelligence.correction.FailureType
 import com.example.core.intelligence.vocabulary.IngredientVocabulary
+import com.example.core.ocr.routing.OCRComplexityAnalyzer
+import com.example.core.ocr.routing.OCRPipelineRouter
+import com.example.core.ocr.tiling.TiledOCRProcessor
 import com.google.android.gms.tasks.Task
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
@@ -35,7 +40,7 @@ class OcrPipeline(
     override suspend fun invoke(input: Pair<ImageFrame, FrameAnalysisResult>): OcrResult {
         val (frame, frameResult) = input
 
-        // 1. Eligibility validation
+        // 1. Eligibility validation (scaled down to allow small frames to be upscaled)
         if (!isOcrEligible(frameResult)) {
             val skippedResult = OcrResult(
                 text = "",
@@ -47,7 +52,8 @@ class OcrPipeline(
                 source = frameResult.source,
                 frame = frameResult,
                 segmentsProcessed = 0,
-                skippedReason = "Image is below ML Kit minimum size of 32x32"
+                skippedReason = "Image is below minimum size of 8x8",
+                failures = listOf(FailureType.INVALID_IMAGE_SIZE_FAILURE)
             )
             OcrInstrumentation.logSkipped(skippedResult)
             return skippedResult
@@ -69,7 +75,8 @@ class OcrPipeline(
                     source = frameResult.source,
                     frame = frameResult,
                     segmentsProcessed = 0,
-                    skippedReason = "Failed to convert frame to Bitmap"
+                    skippedReason = "Failed to convert frame to Bitmap",
+                    failures = listOf(FailureType.INVALID_BITMAP_FAILURE)
                 )
                 OcrInstrumentation.logSkipped(skippedResult)
                 return skippedResult
@@ -77,33 +84,112 @@ class OcrPipeline(
 
             val isTemporary = (frame is ImageFrame.CameraXFrame) || (frame is ImageFrame.BitmapFrame && frame.rotationDegrees != 0)
 
-            // Pass 1: Raw rotated bitmap
-            val pass1Words = runOcrOnBitmap(normalizedBitmap)
+            // 2. Perform fast, low-resolution visual analysis and determine routing strategy
+            val metrics = OCRComplexityAnalyzer.analyze(normalizedBitmap)
+            val strategy = OCRPipelineRouter.route(normalizedBitmap.width, normalizedBitmap.height, metrics)
 
-            // Pass 2: Contrast-enhanced bitmap (grayscale + normalize brightness + CLAHE + sharpen)
-            val contrastBitmap = OcrPreprocessor.toGrayscale(normalizedBitmap)
-                .let { OcrPreprocessor.normalizeBrightness(it) }
-                .let { OcrPreprocessor.applyClahe(it) }
-                .let { OcrPreprocessor.applySharpen(it) }
-            val pass2Words = runOcrOnBitmap(contrastBitmap)
+            var tileRegions = emptyList<Rect>()
+            var words = emptyList<OCRWord>()
+            val pipelineFailures = mutableListOf<FailureType>()
+            var preprocessedBitmap: Bitmap? = null
 
-            // Pass 3: Thresholded bitmap (grayscale + adaptive threshold)
-            val thresholdBitmap = OcrPreprocessor.toGrayscale(normalizedBitmap)
-                .let { OcrPreprocessor.applyAdaptiveThreshold(it) }
-            val pass3Words = runOcrOnBitmap(thresholdBitmap)
+            try {
+                when (strategy) {
+                    OCRPipelineRouter.OcrStrategy.UPSCALE -> {
+                        val scale = 4.0f
+                        val targetW = (normalizedBitmap.width * scale).toInt().coerceAtLeast(32)
+                        val targetH = (normalizedBitmap.height * scale).toInt().coerceAtLeast(32)
+                        preprocessedBitmap = OcrPreprocessor.upscaleBilinear(normalizedBitmap, targetW, targetH)
+                        
+                        val validation = OcrInputValidator.validate(preprocessedBitmap)
+                        if (!validation.isValid) {
+                            val failureType = validation.failureType ?: FailureType.PREPROCESSING_FAILURE
+                            pipelineFailures.add(failureType)
+                        } else {
+                            words = runOcrOnBitmap(preprocessedBitmap)
+                        }
+                    }
+                    OCRPipelineRouter.OcrStrategy.SHARPENED -> {
+                        preprocessedBitmap = if (metrics.brightness > 200f) {
+                            OcrPreprocessor.applyEdgeEnhancement(normalizedBitmap)
+                        } else {
+                            OcrPreprocessor.applySharpen(normalizedBitmap)
+                        }
+                        
+                        val validation = OcrInputValidator.validate(preprocessedBitmap)
+                        if (!validation.isValid) {
+                            val failureType = validation.failureType ?: FailureType.PREPROCESSING_FAILURE
+                            pipelineFailures.add(failureType)
+                        } else {
+                            words = runOcrOnBitmap(preprocessedBitmap)
+                        }
+                    }
+                    OCRPipelineRouter.OcrStrategy.THRESHOLDED -> {
+                        preprocessedBitmap = OcrPreprocessor.toGrayscale(normalizedBitmap)
+                            .let { OcrPreprocessor.applyAdaptiveThreshold(it) }
+                        
+                        val validation = OcrInputValidator.validate(preprocessedBitmap)
+                        if (!validation.isValid) {
+                            val failureType = validation.failureType ?: FailureType.PREPROCESSING_FAILURE
+                            pipelineFailures.add(failureType)
+                        } else {
+                            words = runOcrOnBitmap(preprocessedBitmap)
+                        }
+                    }
+                    OCRPipelineRouter.OcrStrategy.LOW_LIGHT -> {
+                        preprocessedBitmap = OcrPreprocessor.toGrayscale(normalizedBitmap)
+                            .let { OcrPreprocessor.normalizeBrightness(it) }
+                            .let { OcrPreprocessor.applyClahe(it) }
+                            .let { OcrPreprocessor.applySharpen(it) }
+                        
+                        val validation = OcrInputValidator.validate(preprocessedBitmap)
+                        if (!validation.isValid) {
+                            val failureType = validation.failureType ?: FailureType.PREPROCESSING_FAILURE
+                            pipelineFailures.add(failureType)
+                        } else {
+                            words = runOcrOnBitmap(preprocessedBitmap)
+                        }
+                    }
+                    OCRPipelineRouter.OcrStrategy.TILED -> {
+                        try {
+                            val tiledResult = TiledOCRProcessor.runTiledOcr(normalizedBitmap) { tile ->
+                                runOcrOnBitmap(tile)
+                            }
+                            words = tiledResult.first
+                            tileRegions = tiledResult.second
+                        } catch (e: Exception) {
+                            pipelineFailures.add(FailureType.TILE_RECONSTRUCTION_FAILURE)
+                        }
+                    }
+                    OCRPipelineRouter.OcrStrategy.STANDARD -> {
+                        val validation = OcrInputValidator.validate(normalizedBitmap)
+                        if (!validation.isValid) {
+                            val failureType = validation.failureType ?: FailureType.PREPROCESSING_FAILURE
+                            pipelineFailures.add(failureType)
+                        } else {
+                            words = runOcrOnBitmap(normalizedBitmap)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                if (strategy == OCRPipelineRouter.OcrStrategy.TILED) {
+                    pipelineFailures.add(FailureType.TILE_RECONSTRUCTION_FAILURE)
+                } else {
+                    pipelineFailures.add(FailureType.OCR_PIPELINE_ROUTING_FAILURE)
+                }
+            } finally {
+                preprocessedBitmap?.recycle()
+            }
 
-            // Memory Safety: Recycle preprocessed bitmaps immediately
-            contrastBitmap.recycle()
-            thresholdBitmap.recycle()
             if (isTemporary) {
                 normalizedBitmap.recycle()
             }
 
-            // Merge detected words across all three passes
-            val mergedWords = mergePasses(pass1Words, pass2Words, pass3Words)
-
-            // Reconstruct sorted horizontal lines from merged words
-            val reconstructedLines = OCRLineReconstructor.reconstruct(mergedWords)
+            // Reconstruct sorted horizontal lines from words
+            val reconstructedLines = OCRLineReconstructor.reconstruct(words)
+            if (words.isNotEmpty() && reconstructedLines.isEmpty()) {
+                pipelineFailures.add(FailureType.LINE_RECONSTRUCTION_FAILURE)
+            }
 
             // Extract vocabulary to perform layout-aware region detection
             val vocabulary = IngredientVocabulary().getVocabulary()
@@ -133,14 +219,21 @@ class OcrPipeline(
                 averageConfidence = averageConfidence,
                 textBlockCount = reconstructedLines.size,
                 lineCount = reconstructedLines.size,
-                elementCount = mergedWords.size,
+                elementCount = words.size,
                 source = frameResult.source,
                 frame = frameResult,
-                segmentsProcessed = 3, // Represents the 3 passes run
-                ocrWords = mergedWords,
+                segmentsProcessed = if (strategy == OCRPipelineRouter.OcrStrategy.TILED) tileRegions.size else 1,
+                ocrWords = words,
                 reconstructedLines = reconstructedLines,
                 detectedParagraphs = detectedParagraphs,
-                passesRun = listOf("raw", "contrast_enhanced", "thresholded")
+                passesRun = listOf(strategy.name.lowercase()),
+                failures = pipelineFailures,
+                blurScore = metrics.blurScore,
+                contrastScore = metrics.contrast,
+                brightnessScore = metrics.brightness,
+                complexityRating = metrics.complexityRating,
+                routedStrategy = strategy.name,
+                tileRegions = tileRegions
             )
 
             OcrInstrumentation.logSuccess(ocrResult)
@@ -211,7 +304,7 @@ class OcrPipeline(
     }
 
     private fun isOcrEligible(frameResult: FrameAnalysisResult): Boolean {
-        return frameResult.width >= 32 || frameResult.height >= 32
+        return frameResult.width >= 8 && frameResult.height >= 8
     }
 
     override fun close() {

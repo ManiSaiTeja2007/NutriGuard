@@ -64,6 +64,8 @@ dependencies {
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.ktx)
+  implementation(libs.androidx.lifecycle.viewmodel.compose)
+  implementation(libs.androidx.lifecycle.viewmodel.ktx)
   implementation(libs.mlkit.text.recognition)
   testImplementation(libs.junit)
   androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -75,4 +77,10 @@ dependencies {
   androidTestImplementation(libs.androidx.test.rules)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+tasks.register("unitTestClasses") {
+    description = "Compile unit test classes for the debug variant."
+    group = "build"
+    dependsOn("compileDebugUnitTestSources")
 }

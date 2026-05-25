@@ -54,6 +54,13 @@ fun CameraMetadataPanel(
         DebugLine("OCR Time", ocrLatency, primary, secondary)
         DebugLine("OCR Segments", segments, primary, secondary)
         DebugLine("Confidence", confidence, primary, secondary)
+        if (ocrResult != null) {
+            DebugLine("Routed Strategy", ocrResult.routedStrategy, primary, secondary)
+            DebugLine("Complexity", ocrResult.complexityRating, primary, secondary)
+            DebugLine("Blur Score", "%.2f".format(ocrResult.blurScore), primary, secondary)
+            DebugLine("Brightness Score", "%.2f".format(ocrResult.brightnessScore), primary, secondary)
+            DebugLine("Contrast Score", "%.2f".format(ocrResult.contrastScore), primary, secondary)
+        }
         DebugLine(
             "Status",
             errorMessage ?: ocrResult?.skippedReason ?: status,
