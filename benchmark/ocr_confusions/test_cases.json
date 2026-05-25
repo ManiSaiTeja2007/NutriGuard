@@ -1,0 +1,42 @@
+{
+  "dataset_name": "OCR Ambiguity Confusions",
+  "category": "ocr_confusion",
+  "test_cases": [
+    {
+      "id": "conf_001",
+      "input": "e460c",
+      "expected_canonical": "e460(i)",
+      "metadata": {
+        "ocrConfidence": 0.95,
+        "blurScore": 0.1,
+        "contrastScore": 0.8,
+        "brightnessScore": 0.7
+      },
+      "expected_failures": ["OCR_AMBIGUITY_FAILURE", "ADDITIVE_NOTATION_FAILURE"]
+    },
+    {
+      "id": "conf_002",
+      "input": "E45o",
+      "expected_canonical": "e450",
+      "metadata": {
+        "ocrConfidence": 0.90,
+        "blurScore": 0.15,
+        "contrastScore": 0.75,
+        "brightnessScore": 0.70
+      },
+      "expected_failures": ["OCR_AMBIGUITY_FAILURE", "ADDITIVE_NOTATION_FAILURE"]
+    },
+    {
+      "id": "conf_003",
+      "input": "cltrlc",
+      "expected_canonical": "citric acid",
+      "metadata": {
+        "ocrConfidence": 0.80,
+        "blurScore": 0.20,
+        "contrastScore": 0.60,
+        "brightnessScore": 0.65
+      },
+      "expected_failures": ["OCR_AMBIGUITY_FAILURE"]
+    }
+  ]
+}

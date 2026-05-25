@@ -123,6 +123,43 @@ class FailureClassifier:
                 pipeline_version=pipeline_version,
                 details="Alias resolution mismatch. Corrected tokens do not match expectations."
             ))
+            
+            # Check for OCR ambiguity and additive notation failure
+            for act, exp in zip(actual_corrected, expected_corrected):
+                if act != exp:
+                    is_act_e = act.startswith("e") or any(c.isdigit() for c in act)
+                    is_exp_e = exp.startswith("e") or any(c.isdigit() for c in exp)
+                    if is_act_e or is_exp_e:
+                        if "(" in exp or ")" in exp or "(" in act or ")" in act:
+                            failures.append(Failure(
+                                failure_type=ADDITIVE_NOTATION_FAILURE,
+                                stage="alias",
+                                confidence=avg_confidence,
+                                subset=subset,
+                                replay_path=replay_path,
+                                pipeline_version=pipeline_version,
+                                details=f"Additive notation parsing failure between '{act}' and '{exp}'"
+                            ))
+                        else:
+                            failures.append(Failure(
+                                failure_type=OCR_AMBIGUITY_FAILURE,
+                                stage="alias",
+                                confidence=avg_confidence,
+                                subset=subset,
+                                replay_path=replay_path,
+                                pipeline_version=pipeline_version,
+                                details=f"OCR ambiguity confusion detected between '{act}' and '{exp}'"
+                            ))
+                    if len(act) < 4:
+                        failures.append(Failure(
+                            failure_type=FALSE_CORRECTION_RISK_FAILURE,
+                            stage="alias",
+                            confidence=avg_confidence,
+                            subset=subset,
+                            replay_path=replay_path,
+                            pipeline_version=pipeline_version,
+                            details=f"High risk correction avoided/failed for short token '{act}'"
+                        ))
         return failures
 
     @staticmethod

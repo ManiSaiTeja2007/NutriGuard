@@ -1,0 +1,32 @@
+{
+  "dataset_name": "Contextual Disambiguation Test Cases",
+  "category": "contextual_disambiguation",
+  "test_cases": [
+    {
+      "id": "ctx_001",
+      "input": "citnc",
+      "expected_canonical": "citric acid",
+      "context": {
+        "preceding": ["water", "sugar"],
+        "following": ["ascorbic acid"]
+      },
+      "metadata": {
+        "ocrConfidence": 0.85
+      },
+      "expected_failures": ["OCR_AMBIGUITY_FAILURE", "CONTEXT_DISAMBIGUATION_FAILURE"]
+    },
+    {
+      "id": "ctx_002",
+      "input": "msg",
+      "expected_canonical": "monosodium glutamate",
+      "context": {
+        "preceding": ["salt", "onion powder"],
+        "following": ["garlic powder"]
+      },
+      "metadata": {
+        "ocrConfidence": 0.95
+      },
+      "expected_failures": ["CONTEXT_DISAMBIGUATION_FAILURE"]
+    }
+  ]
+}

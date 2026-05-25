@@ -19,15 +19,15 @@ import com.example.core.frame.CameraFrameAnalyzer
 import com.example.core.frame.FrameAnalysisResult
 import com.example.core.frame.FramePipeline
 import com.example.core.ocr.OcrCameraFrameAnalyzer
-import com.example.core.ocr.OcrPipeline
 import com.example.core.ocr.OcrResult
+import com.example.core.pipeline.OCRPipeline
 import java.util.concurrent.Executors
 
 @Composable
 fun CameraPreview(
     framePipeline: FramePipeline,
     onFrameValidated: (FrameAnalysisResult) -> Unit,
-    ocrPipeline: OcrPipeline? = null,
+    ocrPipeline: OCRPipeline? = null,
     onOcrResult: (OcrResult) -> Unit = {},
     modifier: Modifier = Modifier
 ) {

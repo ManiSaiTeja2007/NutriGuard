@@ -1,4 +1,4 @@
-package com.example.core.ocr
+package com.example.core.pipeline
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -6,11 +6,14 @@ import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.graphics.YuvImage
 import android.os.SystemClock
-import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
 import com.example.core.frame.FrameAnalysisResult
 import com.example.core.imaging.ImageFrame
-import com.example.core.pipeline.PipelineStage
+import com.example.core.ocr.OCRBlock
+import com.example.core.ocr.OCRLine
+import com.example.core.ocr.OCRWord
+import com.example.core.ocr.OcrResult
+import com.example.core.ocr.OcrInstrumentation
 import com.example.core.ocr.preprocessing.OcrPreprocessor
 import com.example.core.ocr.reconstruction.OCRLineReconstructor
 import com.example.core.ocr.reconstruction.IngredientRegionDetector
@@ -32,7 +35,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 
-class OcrPipeline(
+class OCRPipeline(
     private val recognizer: TextRecognizer =
         TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 ) : PipelineStage<Pair<ImageFrame, FrameAnalysisResult>, OcrResult>, Closeable {
@@ -40,7 +43,6 @@ class OcrPipeline(
     override suspend fun invoke(input: Pair<ImageFrame, FrameAnalysisResult>): OcrResult {
         val (frame, frameResult) = input
 
-        // 1. Eligibility validation (scaled down to allow small frames to be upscaled)
         if (!isOcrEligible(frameResult)) {
             val skippedResult = OcrResult(
                 text = "",
@@ -62,7 +64,6 @@ class OcrPipeline(
         val startedAtMs = SystemClock.elapsedRealtime()
 
         return try {
-            // Convert to a normalized bitmap (rotated to 0 degrees for easy coordinate math)
             val normalizedBitmap = frame.toNormalisedBitmap()
             if (normalizedBitmap == null) {
                 val skippedResult = OcrResult(
@@ -84,12 +85,12 @@ class OcrPipeline(
 
             val isTemporary = (frame is ImageFrame.CameraXFrame) || (frame is ImageFrame.BitmapFrame && frame.rotationDegrees != 0)
 
-            // 2. Perform fast, low-resolution visual analysis and determine routing strategy
             val metrics = OCRComplexityAnalyzer.analyze(normalizedBitmap)
             val strategy = OCRPipelineRouter.route(normalizedBitmap.width, normalizedBitmap.height, metrics)
 
             var tileRegions = emptyList<Rect>()
             var words = emptyList<OCRWord>()
+            var blocks = emptyList<OCRBlock>()
             val pipelineFailures = mutableListOf<FailureType>()
             var preprocessedBitmap: Bitmap? = null
 
@@ -106,7 +107,9 @@ class OcrPipeline(
                             val failureType = validation.failureType ?: FailureType.PREPROCESSING_FAILURE
                             pipelineFailures.add(failureType)
                         } else {
-                            words = runOcrOnBitmap(preprocessedBitmap)
+                            val parsed = runOcrOnBitmap(preprocessedBitmap)
+                            words = parsed.first
+                            blocks = parsed.second
                         }
                     }
                     OCRPipelineRouter.OcrStrategy.SHARPENED -> {
@@ -121,7 +124,9 @@ class OcrPipeline(
                             val failureType = validation.failureType ?: FailureType.PREPROCESSING_FAILURE
                             pipelineFailures.add(failureType)
                         } else {
-                            words = runOcrOnBitmap(preprocessedBitmap)
+                            val parsed = runOcrOnBitmap(preprocessedBitmap)
+                            words = parsed.first
+                            blocks = parsed.second
                         }
                     }
                     OCRPipelineRouter.OcrStrategy.THRESHOLDED -> {
@@ -133,7 +138,9 @@ class OcrPipeline(
                             val failureType = validation.failureType ?: FailureType.PREPROCESSING_FAILURE
                             pipelineFailures.add(failureType)
                         } else {
-                            words = runOcrOnBitmap(preprocessedBitmap)
+                            val parsed = runOcrOnBitmap(preprocessedBitmap)
+                            words = parsed.first
+                            blocks = parsed.second
                         }
                     }
                     OCRPipelineRouter.OcrStrategy.LOW_LIGHT -> {
@@ -147,16 +154,22 @@ class OcrPipeline(
                             val failureType = validation.failureType ?: FailureType.PREPROCESSING_FAILURE
                             pipelineFailures.add(failureType)
                         } else {
-                            words = runOcrOnBitmap(preprocessedBitmap)
+                            val parsed = runOcrOnBitmap(preprocessedBitmap)
+                            words = parsed.first
+                            blocks = parsed.second
                         }
                     }
                     OCRPipelineRouter.OcrStrategy.TILED -> {
                         try {
+                            val tileBlocksList = mutableListOf<OCRBlock>()
                             val tiledResult = TiledOCRProcessor.runTiledOcr(normalizedBitmap) { tile ->
-                                runOcrOnBitmap(tile)
+                                val (tileWords, tileBlocks) = runOcrOnBitmap(tile)
+                                tileBlocksList.addAll(tileBlocks)
+                                tileWords
                             }
                             words = tiledResult.first
                             tileRegions = tiledResult.second
+                            blocks = tileBlocksList
                         } catch (e: Exception) {
                             pipelineFailures.add(FailureType.TILE_RECONSTRUCTION_FAILURE)
                         }
@@ -167,7 +180,9 @@ class OcrPipeline(
                             val failureType = validation.failureType ?: FailureType.PREPROCESSING_FAILURE
                             pipelineFailures.add(failureType)
                         } else {
-                            words = runOcrOnBitmap(normalizedBitmap)
+                            val parsed = runOcrOnBitmap(normalizedBitmap)
+                            words = parsed.first
+                            blocks = parsed.second
                         }
                     }
                 }
@@ -185,19 +200,14 @@ class OcrPipeline(
                 normalizedBitmap.recycle()
             }
 
-            // Reconstruct sorted horizontal lines from words
             val reconstructedLines = OCRLineReconstructor.reconstruct(words)
             if (words.isNotEmpty() && reconstructedLines.isEmpty()) {
                 pipelineFailures.add(FailureType.LINE_RECONSTRUCTION_FAILURE)
             }
 
-            // Extract vocabulary to perform layout-aware region detection
             val vocabulary = IngredientVocabulary().getVocabulary()
-
-            // Detect and filter for only the ingredient paragraphs
             val detectedParagraphs = IngredientRegionDetector.detectRegion(reconstructedLines, vocabulary)
 
-            // Format final text output
             val finalOcrText = if (detectedParagraphs.isNotEmpty()) {
                 detectedParagraphs.joinToString(separator = "\n") { line ->
                     line.words.joinToString(separator = " ") { it.text }
@@ -223,6 +233,7 @@ class OcrPipeline(
                 source = frameResult.source,
                 frame = frameResult,
                 segmentsProcessed = if (strategy == OCRPipelineRouter.OcrStrategy.TILED) tileRegions.size else 1,
+                ocrBlocks = blocks,
                 ocrWords = words,
                 reconstructedLines = reconstructedLines,
                 detectedParagraphs = detectedParagraphs,
@@ -244,63 +255,31 @@ class OcrPipeline(
         }
     }
 
-    private suspend fun runOcrOnBitmap(bitmap: Bitmap): List<OCRWord> {
+    private suspend fun runOcrOnBitmap(bitmap: Bitmap): Pair<List<OCRWord>, List<OCRBlock>> {
         val image = InputImage.fromBitmap(bitmap, 0)
         val textResult = recognizer.process(image).await()
         val words = mutableListOf<OCRWord>()
+        val blocks = mutableListOf<OCRBlock>()
+
         for (block in textResult.textBlocks) {
+            val blockLines = mutableListOf<OCRLine>()
             for (line in block.lines) {
+                val lineWords = mutableListOf<OCRWord>()
                 for (element in line.elements) {
                     val bounds = element.boundingBox ?: continue
                     val confidence = element.confidence
-                    words.add(OCRWord(element.text, confidence, bounds))
+                    val word = OCRWord(element.text, confidence, bounds)
+                    lineWords.add(word)
+                    words.add(word)
                 }
+                val lineBounds = line.boundingBox ?: continue
+                blockLines.add(OCRLine(lineWords, lineBounds, line.confidence))
             }
+            val blockBounds = block.boundingBox ?: continue
+            val avgConf = if (blockLines.isNotEmpty()) blockLines.map { it.confidence }.average().toFloat() else 1.0f
+            blocks.add(OCRBlock(blockLines, blockBounds, avgConf))
         }
-        return words
-    }
-
-    private fun mergePasses(
-        pass1: List<OCRWord>,
-        pass2: List<OCRWord>,
-        pass3: List<OCRWord>
-    ): List<OCRWord> {
-        val merged = mutableListOf<OCRWord>()
-        val allWords = pass1 + pass2 + pass3
-
-        // Sort by confidence descending so we pick the best detections first
-        val sorted = allWords.sortedByDescending { it.confidence }
-
-        for (word in sorted) {
-            var hasOverlap = false
-            for (existing in merged) {
-                val iou = calculateIoU(word.bounds, existing.bounds)
-                if (iou > 0.4f) {
-                    hasOverlap = true
-                    break
-                }
-            }
-            if (!hasOverlap) {
-                merged.add(word)
-            }
-        }
-        return merged
-    }
-
-    private fun calculateIoU(rectA: Rect, rectB: Rect): Float {
-        val left = maxOf(rectA.left, rectB.left)
-        val top = maxOf(rectA.top, rectB.top)
-        val right = minOf(rectA.right, rectB.right)
-        val bottom = minOf(rectA.bottom, rectB.bottom)
-
-        if (left >= right || top >= bottom) return 0f
-
-        val intersectionArea = (right - left) * (bottom - top)
-        val areaA = rectA.width() * rectA.height()
-        val areaB = rectB.width() * rectB.height()
-        val unionArea = areaA + areaB - intersectionArea
-
-        return if (unionArea > 0) intersectionArea.toFloat() / unionArea else 0f
+        return Pair(words, blocks)
     }
 
     private fun isOcrEligible(frameResult: FrameAnalysisResult): Boolean {

@@ -5,7 +5,7 @@ import android.util.Log
 import com.example.core.frame.FramePipeline
 import com.example.core.imaging.ImageFrame
 import com.example.core.imaging.ImageSource
-import com.example.core.ocr.OcrPipeline
+import com.example.core.pipeline.OCRPipeline
 import com.example.utils.BitmapAssetLoader
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -26,7 +26,7 @@ class StageTwoOcrPipelineTest {
         assertFalse("Expected test label images in androidTest assets.", assetNames.isEmpty())
 
         val framePipeline = FramePipeline(throttleMs = 0L)
-        val ocrPipeline = OcrPipeline()
+        val ocrPipeline = OCRPipeline()
         var nonEmptyOcrCount = 0
         var ocrExecutedCount = 0
         var segmentedCount = 0

@@ -1,0 +1,33 @@
+{
+  "dataset_name": "ENumber Additive Mappings",
+  "category": "additives",
+  "test_cases": [
+    {
+      "id": "add_001",
+      "input": "e460(i)",
+      "expected_canonical": "e460(i)",
+      "metadata": {
+        "ocrConfidence": 0.98
+      },
+      "expected_failures": []
+    },
+    {
+      "id": "add_002",
+      "input": "E5oo",
+      "expected_canonical": "e500",
+      "metadata": {
+        "ocrConfidence": 0.85
+      },
+      "expected_failures": ["OCR_AMBIGUITY_FAILURE", "ADDITIVE_NOTATION_FAILURE"]
+    },
+    {
+      "id": "add_003",
+      "input": "E460ii",
+      "expected_canonical": "e460(ii)",
+      "metadata": {
+        "ocrConfidence": 0.92
+      },
+      "expected_failures": ["ADDITIVE_NOTATION_FAILURE"]
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import androidx.camera.core.ImageProxy
 import com.example.core.frame.FrameAnalysisResult
 import com.example.core.frame.FramePipeline
 import com.example.core.imaging.ImageFrame
+import com.example.core.pipeline.OCRPipeline
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -12,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class OcrCameraFrameAnalyzer(
     private val framePipeline: FramePipeline,
-    private val ocrPipeline: OcrPipeline,
+    private val ocrPipeline: OCRPipeline,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     private val onOcrResult: (OcrResult) -> Unit,
     private val onFrameValidated: (FrameAnalysisResult) -> Unit = {}

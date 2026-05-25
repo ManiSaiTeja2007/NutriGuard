@@ -1,4 +1,4 @@
-package com.example.ui.features.scan
+package com.example.ui.features.production
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -7,13 +7,16 @@ import com.example.core.frame.FrameAnalysisResult
 import com.example.core.frame.FramePipeline
 import com.example.core.imaging.ImageFrame
 import com.example.core.imaging.ImageSource
-import com.example.core.ocr.OcrPipeline
+import com.example.core.pipeline.OCRPipeline
+import com.example.core.pipeline.SemanticPipeline
 import com.example.core.ocr.OcrResult
 import com.example.core.ingredient.*
 import com.example.core.intelligence.vocabulary.IngredientVocabulary
 import com.example.core.intelligence.correction.FailureType
+import com.example.core.intelligence.correction.OcrMetadata
 import com.example.core.replay.ReplayStorageHelper
 import com.example.data.AppSettings
+import com.example.core.config.FeatureFlags
 import com.example.ui.navigation.NavController
 import com.example.ui.navigation.Screen
 import com.example.ui.state.CameraValidationState
@@ -52,13 +55,15 @@ class ScanViewModel : ViewModel() {
     val uiState: StateFlow<ScanUiState> = _uiState.asStateFlow()
 
     private val framePipeline = FramePipeline(throttleMs = 0L)
-    private val ocrPipeline = OcrPipeline()
+    private val ocrPipeline = OCRPipeline()
+    private val vocabulary = IngredientVocabulary()
+    private val semanticPipeline = SemanticPipeline(vocabulary)
 
     val framePipelineInstance: FramePipeline get() = framePipeline
-    val ocrPipelineInstance: OcrPipeline get() = ocrPipeline
+    val ocrPipelineInstance: OCRPipeline get() = ocrPipeline
 
     init {
-        val initialMode = if (AppSettings.debugMode) DebugMode.TestImages else DebugMode.LiveCamera
+        val initialMode = if (FeatureFlags.enableTestImages) DebugMode.TestImages else DebugMode.LiveCamera
         _uiState.update { it.copy(mode = initialMode) }
     }
 
@@ -198,10 +203,15 @@ class ScanViewModel : ViewModel() {
         val ocrLatency = ocrResult.processingLatencyMs
         val ocrConfidence = ocrResult.averageConfidence ?: 0.8f
 
-        val vocabulary = IngredientVocabulary()
-        val pipeline = IngredientNormalizationPipeline(vocabulary)
+        val pipeline = semanticPipeline
 
-        val ingestionResult = pipeline(Pair(ocrText, ocrConfidence))
+        val ocrMetadata = OcrMetadata(
+            ocrConfidence = ocrConfidence,
+            blurScore = ocrResult.blurScore,
+            contrastScore = ocrResult.contrastScore,
+            brightnessScore = ocrResult.brightnessScore
+        )
+        val ingestionResult = pipeline(Pair(ocrText, ocrMetadata))
 
         val canonicalJson = JSONArray().apply {
             ingestionResult.correction.output.forEach { result ->
@@ -280,7 +290,8 @@ class ScanViewModel : ViewModel() {
             }
         }
 
-        if (AppSettings.replaySaving && failuresList.isNotEmpty()) {
+        // Only save replays if FeatureFlags.enableReplay is true and saving is enabled
+        if (FeatureFlags.enableReplay && AppSettings.replaySaving && failuresList.isNotEmpty()) {
             val metrics = mapOf(
                 "avg_confidence" to (ingestionResult.correction.output.map { it.confidence }.average().takeIf { !it.isNaN() } ?: 0.0),
                 "ingredient_count" to ingestionResult.correction.output.size.toDouble(),

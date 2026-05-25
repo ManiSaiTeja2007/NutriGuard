@@ -17,6 +17,12 @@ data class OCRLine(
     val confidence: Float
 )
 
+data class OCRBlock(
+    val lines: List<OCRLine>,
+    val bounds: Rect,
+    val confidence: Float
+)
+
 data class OcrResult(
     val text: String,
     val processingLatencyMs: Long,
@@ -30,6 +36,7 @@ data class OcrResult(
     val skippedReason: String? = null,
     
     // Structured properties for layout-aware reconstruction & debugging
+    val ocrBlocks: List<OCRBlock> = emptyList(),
     val ocrWords: List<OCRWord> = emptyList(),
     val reconstructedLines: List<OCRLine> = emptyList(),
     val detectedParagraphs: List<OCRLine> = emptyList(),

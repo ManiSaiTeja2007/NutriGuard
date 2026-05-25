@@ -1,7 +1,11 @@
 package com.example.core.intelligence.correction
 
+import com.example.core.intelligence.ambiguity.OCRConfusionResolver
+import com.example.core.intelligence.calibration.ConfidenceCalibrationEngine
 import com.example.core.intelligence.contextual.ContextualDisambiguator
 import com.example.core.intelligence.contextual.DisambiguationContext
+import com.example.core.intelligence.enumbers.ENumberEntry
+import com.example.core.intelligence.enumbers.ENumberRepairEngine
 import com.example.core.intelligence.fuzzy.CorrectionContext
 import com.example.core.intelligence.fuzzy.Levenshtein
 import com.example.core.intelligence.fuzzy.MatchCandidate
@@ -15,15 +19,6 @@ import kotlin.math.max
 
 /**
  * Result of running a single token through the full 9-stage correction pipeline.
- *
- * @param canonical           Final corrected canonical form
- * @param confidence          Weighted confidence score [0.0, 1.0]
- * @param failures            Any failure types triggered during correction
- * @param debugSteps          Full waterfall trace for replay explainability
- * @param phraseWindow        The bigram/trigram window used if phrase correction fired (else empty)
- * @param ontologyCategory    Resolved ontology category (e.g. "sweeteners"), or null
- * @param disambiguationRule  The context rule ID that fired (e.g. "acid_citric"), or null
- * @param groupPath           Group hierarchy path: "root" or "root > enriched wheat flour"
  */
 data class CorrectionResult(
     val canonical: String,
@@ -41,43 +36,50 @@ data class CorrectionResult(
 }
 
 /**
- * 9-stage deterministic ingredient correction engine.
- *
- * Stage order (all side-effect free):
- *  1. Normalize       — lowercase, trim
- *  2. Phrase Normalize — PhraseNormalizer (hyphen collapse, split-compound repair)
- *  3. Ontology Mapping — E-numbers and abbreviations
- *  4. Base-Form Resolution — OCR corruption map and multilingual hooks
- *  5. Phrase Correction  — handled pre-call by PhraseCorrector; single token arrives here
- *  6. Fuzzy Correction — Levenshtein with safe length-delta guard
- *  7. Ambiguity Check  — flag tied candidates
- *  8. Confidence Score — weighted blending
- *  9. Canonicalization — emit CorrectionResult with category + disambiguation fields
+ * 9-stage deterministic ingredient correction engine with adaptive calibration.
  */
 class OcrCorrectionEngine(
     private val vocabulary: IngredientVocabulary
 ) {
 
+    // Overloaded backward compatible correct method
+    fun correct(
+        tokens: List<String>,
+        ocrConfidence: Float,
+        groupPath: String = "root"
+    ): List<CorrectionResult> {
+        return correct(tokens, OcrMetadata(ocrConfidence = ocrConfidence), groupPath)
+    }
+
     /**
-     * Corrects a flat list of tokens into [CorrectionResult] entries.
-     * Applies phrase-normalization per token, then full correction cascade.
-     * Contextual disambiguation uses the preceding/following canonical tokens as context.
-     *
-     * @param tokens        Flat list of extracted tokens (post phrase-corrector merge)
-     * @param ocrConfidence Average OCR confidence for this frame [0.0, 1.0]
-     * @param groupPath     Group path to annotate on each result (default "root")
+     * Corrects a flat list of tokens with calibration profiles and staged candidate generation.
      */
     fun correct(
         tokens: List<String>,
-        ocrConfidence: Float = 0.8f,
+        metadata: OcrMetadata = OcrMetadata(),
         groupPath: String = "root"
     ): List<CorrectionResult> {
-        // First pass: correct each token independently
-        val firstPass = tokens.mapIndexed { idx, token ->
-            correctSingle(token, ocrConfidence, groupPath)
+        // Calculate E-number ratio to see if this is an additive-heavy label
+        val totalTokens = tokens.size.coerceAtLeast(1)
+        val additiveCount = tokens.count { 
+            it.startsWith("e", ignoreCase = true) || ENumberRepairEngine.repair(it) != null 
+        }
+        val additiveRatio = additiveCount.toFloat() / totalTokens
+
+        val profile = ConfidenceCalibrationEngine.calibrate(
+            ocrConfidence = metadata.ocrConfidence,
+            blurScore = metadata.blurScore,
+            contrastScore = metadata.contrastScore,
+            brightnessScore = metadata.brightnessScore,
+            additiveRatio = additiveRatio
+        )
+
+        // First pass: correct each token independently with the visual profile
+        val firstPass = tokens.map { token ->
+            correctSingle(token, metadata, groupPath, profile)
         }
 
-        // Second pass: contextual disambiguation using first-pass canonicals as neighbors
+        // Second pass: contextual disambiguation
         return firstPass.mapIndexed { idx, result ->
             if (result.failures.contains(FailureType.UNKNOWN_INGREDIENT_FAILURE) ||
                 result.failures.contains(FailureType.AMBIGUOUS_MATCH_FAILURE)) {
@@ -127,78 +129,35 @@ class OcrCorrectionEngine(
         }
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Private: single-token correction (stages 1-8)
-    // ─────────────────────────────────────────────────────────────
-
     private fun correctSingle(
         token: String,
-        ocrConfidence: Float,
-        groupPath: String
+        metadata: OcrMetadata,
+        groupPath: String,
+        profile: ConfidenceCalibrationEngine.CalibrationProfile
     ): CorrectionResult {
         val debugSteps = mutableListOf<String>()
         val failures = mutableListOf<FailureType>()
 
-        // Stage 1: Normalize
+        // 1. Normalize
         debugSteps.add("OCR: $token")
+        debugSteps.add("calibration profile: ${profile.name}")
         val cleanToken = token.lowercase(Locale.ROOT).trim()
         debugSteps.add("normalized: $cleanToken")
 
-        // Stage 2: Phrase Normalize
+        // 2. Phrase Normalize
         val (phraseNorm, phraseTrace) = PhraseNormalizer.normalize(cleanToken)
         debugSteps.addAll(phraseTrace)
 
-        // Stage 3: Ontology Mapping (E-numbers / abbreviations)
+        // --- STAGED CANDIDATE GENERATION PIPELINE ---
+
+        // Stage 1: Ontology Exact Match (E-numbers / Abbreviations)
         val ontologyTarget = IngredientOntology.resolve(phraseNorm)
         if (ontologyTarget != null) {
             val category = IngredientOntology.categoryOf(ontologyTarget)
-            debugSteps.add("ontology: \"$ontologyTarget\"${if (category != null) " [category: $category]" else ""}")
-            val confidence = MatchConfidence.calculateFuzzyConfidence(
-                token = phraseNorm,
-                candidate = ontologyTarget,
-                distance = 0,
-                context = CorrectionContext(
-                    ocrConfidence = ocrConfidence,
-                    tokenLength = phraseNorm.length,
-                    ambiguityCount = 0,
-                    isKnownAbbreviation = true,
-                    isOntologyMapping = true
-                )
-            )
+            debugSteps.add("ontology hit: \"$ontologyTarget\"${if (category != null) " [category: $category]" else ""}")
             debugSteps.add("canonicalized: $ontologyTarget")
             return CorrectionResult(
                 canonical = ontologyTarget,
-                confidence = confidence,
-                failures = emptyList(),
-                debugSteps = debugSteps,
-                ontologyCategory = category,
-                groupPath = groupPath
-            )
-        }
-
-        // Stage 4: OCR corruption map / multilingual hook.
-        val baseForm = vocabulary.resolveBaseForm(phraseNorm)
-        if (baseForm != phraseNorm) {
-            val category = IngredientOntology.categoryOf(baseForm)
-            debugSteps.add("base-form resolution: \"$baseForm\"${if (category != null) " [category: $category]" else ""}")
-            debugSteps.add("canonicalized: $baseForm")
-            return CorrectionResult(
-                canonical = baseForm,
-                confidence = MatchConfidence.OCR_CORRECTION_MAP,
-                failures = emptyList(),
-                debugSteps = debugSteps,
-                ontologyCategory = category,
-                groupPath = groupPath
-            )
-        }
-
-        // Stage 5: Exact vocabulary check. Phrase correction was already handled upstream.
-        if (vocabulary.contains(phraseNorm)) {
-            val category = IngredientOntology.categoryOf(phraseNorm)
-            debugSteps.add("vocabulary hit: \"$phraseNorm\"${if (category != null) " [category: $category]" else ""}")
-            debugSteps.add("canonicalized: $phraseNorm")
-            return CorrectionResult(
-                canonical = phraseNorm,
                 confidence = 1.0f,
                 failures = emptyList(),
                 debugSteps = debugSteps,
@@ -207,29 +166,99 @@ class OcrCorrectionEngine(
             )
         }
 
-        // Stage 6: Fuzzy correction (Levenshtein with safe length-delta guard)
-        val candidates = mutableListOf<MatchCandidate>()
-        val vocab = vocabulary.getVocabulary()
+        // Stage 2: Specialized E-Number Repair
+        val eNumberRepair = ENumberRepairEngine.repair(phraseNorm)
+        if (eNumberRepair != null) {
+            val category = eNumberRepair.category
+            debugSteps.add("additive repair: \"${eNumberRepair.repairedCode}\" -> \"${eNumberRepair.canonicalName}\"")
+            if (eNumberRepair.isRepaired) {
+                failures.add(FailureType.ADDITIVE_NOTATION_FAILURE)
+            }
+            debugSteps.add("canonicalized: ${eNumberRepair.canonicalName}")
+            return CorrectionResult(
+                canonical = eNumberRepair.canonicalName,
+                confidence = if (eNumberRepair.isRepaired) 0.90f else 1.0f,
+                failures = failures,
+                debugSteps = debugSteps,
+                ontologyCategory = category,
+                groupPath = groupPath
+            )
+        }
 
-        for (candidate in vocab) {
-            val lenToken = phraseNorm.length
-            val lenCandidate = candidate.length
-            if (abs(lenToken - lenCandidate) > 4) continue
+        // Stage 3: OCR Confusion Repair (Position-Aware)
+        val siteCount = phraseNorm.count { it in "c0oO1lis5()" }
+        if (siteCount > 8) {
+            if (!failures.contains(FailureType.CANDIDATE_EXPLOSION_FAILURE)) {
+                failures.add(FailureType.CANDIDATE_EXPLOSION_FAILURE)
+            }
+            debugSteps.add("candidate explosion warning: token contains $siteCount ambiguity sites")
+        }
+        val confusionCandidates = OCRConfusionResolver.resolveAmbiguity(phraseNorm)
+        val validConfusionHits = mutableListOf<MatchCandidate>()
 
-            val distance = Levenshtein.distance(phraseNorm, candidate)
-            val maxLen = max(lenToken, lenCandidate)
-            if (maxLen == 0) continue
-
-            val ratio = distance.toFloat() / maxLen
-            if (ratio <= MatchConfidence.FUZZY_RATIO_THRESHOLD) {
-                candidates.add(MatchCandidate(candidate, 1.0f - ratio, distance))
+        for (cand in confusionCandidates) {
+            if (vocabulary.contains(cand.text)) {
+                validConfusionHits.add(
+                    MatchCandidate(vocabulary.resolveBaseForm(cand.text), 1.0f - cand.penalty, 0)
+                )
+            }
+            val ontResolve = IngredientOntology.resolve(cand.text)
+            if (ontResolve != null) {
+                validConfusionHits.add(
+                    MatchCandidate(ontResolve, 1.0f - cand.penalty, 0)
+                )
             }
         }
-        candidates.sortByDescending { it.confidence }
 
-        if (candidates.isEmpty()) {
+        if (validConfusionHits.isNotEmpty()) {
+            validConfusionHits.sortByDescending { it.confidence }
+            val topHit = validConfusionHits[0]
+            failures.add(FailureType.OCR_AMBIGUITY_FAILURE)
+            debugSteps.add("ocr ambiguity resolved: \"${topHit.candidate}\" (confidence: ${"%.2f".format(topHit.confidence)})")
+            debugSteps.add("canonicalized: ${topHit.candidate}")
+            return CorrectionResult(
+                canonical = topHit.candidate,
+                confidence = topHit.confidence,
+                failures = failures,
+                debugSteps = debugSteps,
+                ontologyCategory = IngredientOntology.categoryOf(topHit.candidate),
+                groupPath = groupPath
+            )
+        }
+
+        // Stage 4: Fuzzy Expansion (Bounded Levenshtein)
+        val fuzzyCandidates = mutableListOf<MatchCandidate>()
+        val vocab = vocabulary.getVocabulary()
+        
+        // Dynamic max edit distance bounds by token length and profile
+        val lenToken = phraseNorm.length
+        val maxAllowedDistance = minOf(profile.maxEditDistance, lenToken / 2).coerceAtLeast(1)
+
+        for (candidate in vocab) {
+            val lenCandidate = candidate.length
+            if (abs(lenToken - lenCandidate) > maxAllowedDistance) continue
+
+            val distance = Levenshtein.distance(phraseNorm, candidate)
+            if (distance <= maxAllowedDistance) {
+                val ratio = distance.toFloat() / max(lenToken, lenCandidate)
+                val fuzzyScore = 1.0f - ratio
+                
+                val context = CorrectionContext(
+                    ocrConfidence = metadata.ocrConfidence,
+                    tokenLength = lenToken,
+                    ambiguityCount = 0,
+                    isKnownAbbreviation = false,
+                    isOntologyMapping = false
+                )
+                val finalConf = MatchConfidence.calculateFuzzyConfidence(phraseNorm, candidate, distance, context)
+                fuzzyCandidates.add(MatchCandidate(candidate, finalConf, distance))
+            }
+        }
+        fuzzyCandidates.sortByDescending { it.confidence }
+
+        if (fuzzyCandidates.isEmpty()) {
             debugSteps.add("candidate: none")
-            debugSteps.add("canonicalized: $phraseNorm")
+            debugSteps.add("rejection reason: no fuzzy candidates within max edit distance $maxAllowedDistance")
             failures.add(FailureType.UNKNOWN_INGREDIENT_FAILURE)
             return CorrectionResult(
                 canonical = phraseNorm,
@@ -240,38 +269,51 @@ class OcrCorrectionEngine(
             )
         }
 
-        // Stage 7: Ambiguity check
-        val bestCandidate = candidates[0]
-        val ambiguityCount = candidates.count {
+        // Stage 5: False-Correction Safeguards
+        val bestCandidate = fuzzyCandidates[0]
+        val ambiguityCount = fuzzyCandidates.count {
             it != bestCandidate && abs(it.distance - bestCandidate.distance) <= 1
         }
+
+        // Handle ambiguity warnings
         if (ambiguityCount > 0) {
-            failures.add(FailureType.AMBIGUOUS_MATCH_FAILURE)
-            debugSteps.add("ambiguity warning: $ambiguityCount other close matches (top candidates: ${candidates.take(3).map { it.candidate }})")
+            failures.add(FailureType.OCR_AMBIGUITY_FAILURE)
+            debugSteps.add("ambiguity warning: $ambiguityCount other close matches. Top: ${fuzzyCandidates.take(3).map { it.candidate }}")
         }
 
-        // Stage 8: Weighted confidence scoring
-        val confidenceContext = CorrectionContext(
-            ocrConfidence = ocrConfidence,
-            tokenLength = phraseNorm.length,
-            ambiguityCount = ambiguityCount,
-            isKnownAbbreviation = false,
-            isOntologyMapping = false
-        )
-        val finalConfidence = MatchConfidence.calculateFuzzyConfidence(
-            token = phraseNorm,
-            candidate = bestCandidate.candidate,
-            distance = bestCandidate.distance,
-            context = confidenceContext
-        )
+        // 1. Safeguard: High ambiguity and allowAmbiguousCorrection is disabled
+        if (ambiguityCount > 0 && !profile.allowAmbiguousCorrection) {
+            failures.add(FailureType.FALSE_CORRECTION_RISK_FAILURE)
+            debugSteps.add("safeguard triggered: preserved raw token \"$phraseNorm\" due to high ambiguity (allowAmbiguousCorrection is false)")
+            debugSteps.add("rejected candidates: ${fuzzyCandidates.take(3).map { it.candidate }}")
+            return CorrectionResult(
+                canonical = phraseNorm,
+                confidence = 0.6f,
+                failures = failures,
+                debugSteps = debugSteps,
+                groupPath = groupPath
+            )
+        }
 
-        debugSteps.add("candidate: \"${bestCandidate.candidate}\"")
+        // 2. Safeguard: Low confidence threshold check
+        val finalConfidence = bestCandidate.confidence
+        if (finalConfidence < profile.minimumConfidenceThreshold) {
+            failures.add(FailureType.FALSE_CORRECTION_RISK_FAILURE)
+            debugSteps.add("safeguard triggered: preserved raw token \"$phraseNorm\" due to low match confidence (${"%.2f".format(finalConfidence)} < ${profile.minimumConfidenceThreshold})")
+            debugSteps.add("rejected candidate: \"${bestCandidate.candidate}\"")
+            return CorrectionResult(
+                canonical = phraseNorm,
+                confidence = finalConfidence,
+                failures = failures,
+                debugSteps = debugSteps,
+                groupPath = groupPath
+            )
+        }
+
+        debugSteps.add("accepted candidate: \"${bestCandidate.candidate}\"")
         debugSteps.add("distance: ${bestCandidate.distance}")
-        debugSteps.add("fuzzy score: ${"%.2f".format(bestCandidate.confidence)}")
+        debugSteps.add("final confidence: ${"%.2f".format(finalConfidence)}")
 
-        if (finalConfidence < 0.75f) failures.add(FailureType.LOW_CONFIDENCE_CORRECTION_FAILURE)
-
-        // Stage 9: Canonicalization
         val category = IngredientOntology.categoryOf(bestCandidate.candidate)
         if (category != null) debugSteps.add("category: $category")
         debugSteps.add("canonicalized: ${bestCandidate.candidate}")

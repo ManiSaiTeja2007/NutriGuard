@@ -1,4 +1,4 @@
-package com.example.ui.features.replay
+package com.example.ui.features.developer
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -6,11 +6,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,13 +46,16 @@ fun ReplayViewerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Replay Inspector", color = Color(0xFF163832), fontWeight = FontWeight.Bold) },
+                title = { Text("Replay Inspector", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    TextButton(onClick = { navController.popBackStack() }) {
-                        Text("Back", color = Color(0xFF116A5B))
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         },
         modifier = modifier
@@ -59,20 +63,36 @@ fun ReplayViewerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF7FAF9))
+                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(24.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             if (errorMessage != null) {
-                Text(text = errorMessage!!, color = Color.Red, style = MaterialTheme.typography.bodyLarge)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Text(
+                        text = errorMessage!!,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
                 return@Column
             }
 
             val data = replayData
             if (data == null) {
-                Text("Loading replay details...", color = Color(0xFF7D8E8A))
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
                 return@Column
             }
 
@@ -80,15 +100,16 @@ fun ReplayViewerScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Replay ID: $replayId", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF163832))
-                    Text("Source: ${data.optString("source_image")}", style = MaterialTheme.typography.bodySmall, color = Color(0xFF7D8E8A))
-                    Text("Timestamp: ${data.optString("timestamp")}", style = MaterialTheme.typography.bodySmall, color = Color(0xFF7D8E8A))
+                    Text("Replay ID: $replayId", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text("Source: ${data.optString("source_image")}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Timestamp: ${data.optString("timestamp")}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp)) {
-                        Text("Pipeline: v${data.optString("pipeline_version")}", style = MaterialTheme.typography.labelSmall, color = Color(0xFF116A5B), fontWeight = FontWeight.Bold)
-                        Text("Schema: v${data.optString("benchmark_schema_version")}", style = MaterialTheme.typography.labelSmall, color = Color(0xFF116A5B), fontWeight = FontWeight.Bold)
+                        Text("Pipeline: v${data.optString("pipeline_version")}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Text("Schema: v${data.optString("benchmark_schema_version")}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -97,23 +118,24 @@ fun ReplayViewerScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Benchmark Metrics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF163832))
+                    Text("Benchmark Metrics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(10.dp))
                     val metrics = data.optJSONObject("metrics")
                     if (metrics != null) {
                         metrics.keys().forEach { key ->
                             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(key.uppercase(), style = MaterialTheme.typography.bodyMedium, color = Color(0xFF7D8E8A))
+                                Text(key.uppercase(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 val v = metrics.optDouble(key)
                                 val valStr = if (key.contains("accuracy")) "${(v * 100).toInt()}%" else "%.4f".format(v)
-                                Text(valStr, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color(0xFF163832))
+                                Text(valStr, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     } else {
-                        Text("No metrics recorded.", color = Color(0xFF7D8E8A))
+                        Text("No metrics recorded.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -122,10 +144,11 @@ fun ReplayViewerScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Failure Diagnostics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF163832))
+                    Text("Failure Diagnostics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(10.dp))
                     val failures = data.optJSONArray("failures")
                     if (failures != null && failures.length() > 0) {
@@ -133,18 +156,18 @@ fun ReplayViewerScreen(
                             val fail = failures.getJSONObject(i)
                             Column(modifier = Modifier.padding(vertical = 6.dp)) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(fail.optString("failure_type"), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color(0xFFC0392B))
-                                    Text("Stage: " + fail.optString("stage").uppercase(), style = MaterialTheme.typography.labelSmall, color = Color(0xFF7D8E8A))
+                                    Text(fail.optString("failure_type"), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                    Text("Stage: " + fail.optString("stage").uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(fail.optString("details"), style = MaterialTheme.typography.bodySmall, color = Color(0xFF5D6E6A))
+                                Text(fail.optString("details"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             if (i < failures.length() - 1) {
-                                HorizontalDivider(color = Color(0xFFF0F5F3), modifier = Modifier.padding(vertical = 4.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), modifier = Modifier.padding(vertical = 4.dp))
                             }
                         }
                     } else {
-                        Text("No failures detected. Stage passes successfully.", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF116A5B), fontWeight = FontWeight.Bold)
+                        Text("No failures detected. Stage passes successfully.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -153,22 +176,23 @@ fun ReplayViewerScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("OCR Text Ingested", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF163832))
-                    Text("Raw Ingested Text:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF5D6E6A))
-                    Box(modifier = Modifier.fillMaxWidth().background(Color(0xFFF7FAF9)).border(1.dp, Color(0xFFE8EFEC)).padding(8.dp)) {
-                        Text(data.optString("ocr_output"), style = MaterialTheme.typography.bodySmall)
+                    Text("OCR Text Ingested", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text("Raw Ingested Text:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp)).padding(8.dp)) {
+                        Text(data.optString("ocr_output"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                     }
-                    Text("Normalized Ingested Text:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF5D6E6A))
-                    Box(modifier = Modifier.fillMaxWidth().background(Color(0xFFF7FAF9)).border(1.dp, Color(0xFFE8EFEC)).padding(8.dp)) {
-                        Text(data.optString("normalized_text"), style = MaterialTheme.typography.bodySmall)
+                    Text("Normalized Ingested Text:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp)).padding(8.dp)) {
+                        Text(data.optString("normalized_text"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
 
-            // 4b. Reconstructed OCR Layout & Multi-pass card
+            // 4b. Reconstructed OCR Layout details
             val ocrWords = data.optJSONArray("ocr_words")
             val reconstructedLines = data.optJSONArray("reconstructed_lines")
             val detectedParagraphs = data.optJSONArray("detected_paragraphs")
@@ -178,33 +202,34 @@ fun ReplayViewerScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Reconstructed OCR Layout Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF163832))
+                        Text("Reconstructed OCR Layout Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         
                         if (passesRun != null && passesRun.length() > 0) {
                             val passesStr = (0 until passesRun.length()).map { passesRun.getString(it) }.joinToString(", ")
-                            Text("Passes Run: $passesStr", style = MaterialTheme.typography.bodySmall, color = Color(0xFF116A5B), fontWeight = FontWeight.Bold)
+                            Text("Passes Run: $passesStr", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         }
 
                         if (ocrWords != null) {
-                            Text("Deduplicated Words (${ocrWords.length()}):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF5D6E6A))
+                            Text("Deduplicated Words (${ocrWords.length()}):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(max = 120.dp)
-                                    .background(Color(0xFFF7FAF9))
-                                    .border(1.dp, Color(0xFFE8EFEC))
+                                    .background(MaterialTheme.colorScheme.background)
+                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
                                     .padding(8.dp)
                             ) {
                                 val textList = (0 until ocrWords.length()).map { ocrWords.getJSONObject(it).optString("text") }
-                                Text(textList.joinToString(", "), style = MaterialTheme.typography.bodySmall)
+                                Text(textList.joinToString(", "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
 
                         if (reconstructedLines != null) {
-                            Text("Reconstructed Lines (${reconstructedLines.length()}):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF5D6E6A))
+                            Text("Reconstructed Lines (${reconstructedLines.length()}):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 for (i in 0 until reconstructedLines.length()) {
                                     val line = reconstructedLines.getJSONObject(i)
@@ -212,19 +237,19 @@ fun ReplayViewerScreen(
                                     val boundsStr = if (bounds != null) "[L:${bounds.optInt("left")} T:${bounds.optInt("top")} R:${bounds.optInt("right")} B:${bounds.optInt("bottom")}]" else ""
                                     val wordsArr = line.optJSONArray("words")
                                     val lineText = if (wordsArr != null) (0 until wordsArr.length()).map { wordsArr.getString(it) }.joinToString(" ") else ""
-                                    Text("Line ${i + 1}: \"$lineText\" $boundsStr (conf: ${"%.2f".format(line.optDouble("confidence"))})", style = MaterialTheme.typography.bodySmall, color = Color(0xFF3D4946))
+                                    Text("Line ${i + 1}: \"$lineText\" $boundsStr (conf: ${"%.2f".format(line.optDouble("confidence"))})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
                         }
 
                         if (detectedParagraphs != null && detectedParagraphs.length() > 0) {
-                            Text("Detected Ingredient Paragraph:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF0D5C4A))
+                            Text("Detected Ingredient Paragraph:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 for (i in 0 until detectedParagraphs.length()) {
                                     val line = detectedParagraphs.getJSONObject(i)
                                     val wordsArr = line.optJSONArray("words")
                                     val lineText = if (wordsArr != null) (0 until wordsArr.length()).map { wordsArr.getString(it) }.joinToString(" ") else ""
-                                    Text("• $lineText", style = MaterialTheme.typography.bodySmall, color = Color(0xFF163832), fontWeight = FontWeight.Bold)
+                                    Text("• $lineText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -238,11 +263,12 @@ fun ReplayViewerScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Ingredient Correction Traces", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF163832))
-                        Text("${canonicalArr.length()} ingredients", style = MaterialTheme.typography.bodySmall, color = Color(0xFF7D8E8A))
+                        Text("Ingredient Correction Traces", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text("${canonicalArr.length()} ingredients", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(4.dp))
 
                         for (i in 0 until canonicalArr.length()) {
@@ -264,29 +290,29 @@ fun ReplayViewerScreen(
                                         canonical,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (hasFailure) Color(0xFFC0392B) else Color(0xFF163832),
+                                        color = if (hasFailure) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                                         modifier = Modifier.weight(1f)
                                     )
                                     if (category != null) {
                                         Box(
                                             modifier = Modifier
-                                                .background(Color(0xFFE8F5F0), RoundedCornerShape(4.dp))
+                                                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(4.dp))
                                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
-                                            Text(category.replace('_', ' '), style = MaterialTheme.typography.labelSmall, color = Color(0xFF0D5C4A), fontWeight = FontWeight.Bold)
+                                            Text(category.replace('_', ' '), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
                                 if (rule != null) {
-                                    Text("context rule: $rule", style = MaterialTheme.typography.labelSmall, color = Color(0xFF9DADA9))
+                                    Text("context rule: $rule", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f))
                                 }
                                 if (stepsArr != null && stepsArr.length() > 0) {
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .background(Color(0xFFF0F5F3))
-                                            .border(1.dp, Color(0xFFE8EFEC), RoundedCornerShape(4.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
                                             .padding(8.dp)
                                     ) {
                                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -301,7 +327,7 @@ fun ReplayViewerScreen(
                                                 Text(
                                                     step,
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = if (isHeader) Color(0xFF163832) else Color(0xFF5D6E6A),
+                                                    color = if (isHeader) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                                                     fontWeight = if (isHeader) FontWeight.Bold else FontWeight.Normal
                                                 )
                                             }
@@ -310,7 +336,7 @@ fun ReplayViewerScreen(
                                 }
                             }
                             if (i < canonicalArr.length() - 1) {
-                                HorizontalDivider(color = Color(0xFFF0F5F3), modifier = Modifier.padding(vertical = 6.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), modifier = Modifier.padding(vertical = 6.dp))
                             }
                         }
                     }

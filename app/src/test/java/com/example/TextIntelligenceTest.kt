@@ -1,6 +1,8 @@
 package com.example
 
 import com.example.core.ingredient.*
+import com.example.core.pipeline.SemanticPipeline
+import com.example.core.intelligence.correction.OcrMetadata
 import com.example.core.intelligence.alias.AliasResolver
 import com.example.core.intelligence.vocabulary.IngredientVocabulary
 import com.example.core.normalization.TextNormalizer
@@ -99,11 +101,11 @@ class TextIntelligenceTest {
     @Test
     fun testPipelineDeterminism() = runBlocking {
         val vocab = IngredientVocabulary()
-        val pipeline = IngredientNormalizationPipeline(vocab)
+        val pipeline = SemanticPipeline(vocab)
         val input = "ingredients: sugar, salt, msg, citric acid"
 
-        val run1 = pipeline(Pair(input, 0.8f)).correction.output
-        val run2 = pipeline(Pair(input, 0.8f)).correction.output
+        val run1 = pipeline(Pair(input, OcrMetadata(ocrConfidence = 0.8f))).correction.output
+        val run2 = pipeline(Pair(input, OcrMetadata(ocrConfidence = 0.8f))).correction.output
 
         assertEquals(run1.size, run2.size)
         run1.forEachIndexed { i, res ->
@@ -117,11 +119,11 @@ class TextIntelligenceTest {
     @Test
     fun testCatastropheNoCommasSpacingRecovery() = runBlocking {
         val vocab = IngredientVocabulary()
-        val pipeline = IngredientNormalizationPipeline(vocab)
+        val pipeline = SemanticPipeline(vocab)
 
         // Input has NO commas, but has multi-word ingredients in the vocabulary (like "citric acid")
         val input = "ingredients: sugar salt citric acid msg"
-        val result = pipeline(Pair(input, 0.8f)).correction.output
+        val result = pipeline(Pair(input, OcrMetadata(ocrConfidence = 0.8f))).correction.output
 
         val canonicals = result.map { it.canonical }
 
@@ -135,10 +137,10 @@ class TextIntelligenceTest {
     @Test
     fun testCatastropheAllCapsAndNewlines() = runBlocking {
         val vocab = IngredientVocabulary()
-        val pipeline = IngredientNormalizationPipeline(vocab)
+        val pipeline = SemanticPipeline(vocab)
 
         val input = "INGREDIENTS: SUGAR,\nSALT,\nCITRIC ACID"
-        val result = pipeline(Pair(input, 0.8f)).correction.output
+        val result = pipeline(Pair(input, OcrMetadata(ocrConfidence = 0.8f))).correction.output
 
         assertEquals(3, result.size)
         assertEquals("sugar", result[0].canonical)
@@ -170,11 +172,11 @@ class TextIntelligenceTest {
     @Test
     fun testMalformedIngredients() = runBlocking {
         val vocab = IngredientVocabulary()
-        val pipeline = IngredientNormalizationPipeline(vocab)
+        val pipeline = SemanticPipeline(vocab)
 
         // Empty strings, trailing periods, unbalanced parenthesis
         val malformed = "ingredients: sugar, ..., salt., water (enriched"
-        val result = pipeline(Pair(malformed, 0.8f)).correction.output
+        val result = pipeline(Pair(malformed, OcrMetadata(ocrConfidence = 0.8f))).correction.output
 
         val originals = result.map { it.originalToken }
         assertTrue(originals.contains("sugar"))
@@ -186,10 +188,10 @@ class TextIntelligenceTest {
     @Test
     fun testDuplicateIngredients() = runBlocking {
         val vocab = IngredientVocabulary()
-        val pipeline = IngredientNormalizationPipeline(vocab)
+        val pipeline = SemanticPipeline(vocab)
 
         val input = "ingredients: sugar, salt, sugar, salt"
-        val result = pipeline(Pair(input, 0.8f)).correction.output
+        val result = pipeline(Pair(input, OcrMetadata(ocrConfidence = 0.8f))).correction.output
 
         // Duplicates preserved in raw output list
         assertEquals(4, result.size)

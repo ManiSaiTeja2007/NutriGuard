@@ -2,4 +2,6 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="nutriguard_background">#FFF7FAF9</color>
+    <color name="nutriguard_primary">#FF116A5B</color>
 </resources>

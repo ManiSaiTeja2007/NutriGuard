@@ -1,0 +1,37 @@
+{
+  "dataset_name": "Semantic Correctness Safeguards",
+  "category": "semantic_cases",
+  "test_cases": [
+    {
+      "id": "sem_001",
+      "input": "salt",
+      "expected_canonical": "salt",
+      "metadata": {
+        "ocrConfidence": 0.99
+      },
+      "expected_failures": []
+    },
+    {
+      "id": "sem_002",
+      "input": "sulf",
+      "expected_canonical": "sulf",
+      "metadata": {
+        "ocrConfidence": 0.40,
+        "blurScore": 0.60,
+        "contrastScore": 0.30
+      },
+      "expected_failures": ["FALSE_CORRECTION_RISK_FAILURE", "UNKNOWN_INGREDIENT_FAILURE"]
+    },
+    {
+      "id": "sem_003",
+      "input": "sulat",
+      "expected_canonical": "sulat",
+      "metadata": {
+        "ocrConfidence": 0.45,
+        "blurScore": 0.50,
+        "contrastScore": 0.35
+      },
+      "expected_failures": ["FALSE_CORRECTION_RISK_FAILURE", "UNKNOWN_INGREDIENT_FAILURE"]
+    }
+  ]
+}

@@ -7,6 +7,7 @@ import com.example.core.intelligence.correction.FailureType
 import com.example.core.intelligence.correction.PipelineStageResult
 import com.example.core.intelligence.correction.CorrectionResult
 import com.example.core.intelligence.correction.OcrCorrectionEngine
+import com.example.core.intelligence.correction.OcrMetadata
 import com.example.core.intelligence.grouping.IngredientGroup
 import com.example.core.intelligence.grouping.IngredientGroupParser
 import com.example.core.intelligence.parsing.PhraseCorrector
@@ -94,11 +95,16 @@ class PhraseCorrectionStage(
 
 class CorrectionStage(
     private val correctionEngine: OcrCorrectionEngine
-) : PipelineStage<Pair<List<String>, Float>, PipelineStageResult<List<CorrectionResult>>> {
-    override suspend fun invoke(input: Pair<List<String>, Float>): PipelineStageResult<List<CorrectionResult>> {
-        val (tokens, ocrConfidence) = input
+) : PipelineStage<Pair<List<String>, Any>, PipelineStageResult<List<CorrectionResult>>> {
+    override suspend fun invoke(input: Pair<List<String>, Any>): PipelineStageResult<List<CorrectionResult>> {
+        val (tokens, metadataRaw) = input
+        val metadata = when (metadataRaw) {
+            is OcrMetadata -> metadataRaw
+            is Float -> OcrMetadata(ocrConfidence = metadataRaw)
+            else -> OcrMetadata()
+        }
         val startTime = System.currentTimeMillis()
-        val results = correctionEngine.correct(tokens, ocrConfidence)
+        val results = correctionEngine.correct(tokens, metadata)
         val latency = System.currentTimeMillis() - startTime
 
         val trace = mutableListOf<String>()
@@ -116,7 +122,7 @@ class CorrectionStage(
 /**
  * Orchestrates all 5 pipeline stages in sequence:
  *
- *   OCR text (+ ocrConfidence)
+ *   OCR text (+ ocrConfidence/OcrMetadata)
  *     ↓ NormalizationStage
  *     ↓ ExtractionStage       (flat token list)
  *     ↓ GroupingStage         (structured IngredientGroup tree — runs in parallel on raw text)
@@ -125,40 +131,5 @@ class CorrectionStage(
  *
  * Each stage emits: output, latencyMs, debugTrace, failures.
  */
-class IngredientNormalizationPipeline(
-    private val vocabulary: IngredientVocabulary
-) : PipelineStage<Pair<String, Float>, IngredientIngestionResult> {
+// Replaced by com.example.core.pipeline.SemanticPipeline
 
-    private val normalizationStage = NormalizationStage()
-    private val extractionStage = ExtractionStage(vocabulary)
-    private val groupingStage = GroupingStage()
-    private val phraseCorrectionStage = PhraseCorrectionStage(PhraseCorrector())
-    private val correctionStage = CorrectionStage(OcrCorrectionEngine(vocabulary))
-
-    override suspend fun invoke(input: Pair<String, Float>): IngredientIngestionResult {
-        val (rawText, ocrConfidence) = input
-
-        // Stage 1: Normalize OCR text
-        val normResult = normalizationStage(rawText)
-
-        // Stage 2: Extract raw tokens from normalized text
-        val extractResult = extractionStage(normResult.output)
-
-        // Stage 3: Parse group structure from normalized text (runs on normalized form, not tokens)
-        val groupResult = groupingStage(normResult.output)
-
-        // Stage 4: Phrase correction (bigram/trigram merging on raw tokens)
-        val phraseCorrResult = phraseCorrectionStage(extractResult.output)
-
-        // Stage 5: Semantic token correction (with contextual disambiguation)
-        val correctionResult = correctionStage(Pair(phraseCorrResult.output, ocrConfidence))
-
-        return IngredientIngestionResult(
-            normalization = normResult,
-            extraction = extractResult,
-            grouping = groupResult,
-            phraseCorrection = phraseCorrResult,
-            correction = correctionResult
-        )
-    }
-}

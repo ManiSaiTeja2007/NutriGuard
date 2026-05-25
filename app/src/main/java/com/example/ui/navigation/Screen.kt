@@ -12,7 +12,11 @@ sealed class Screen(val route: String) {
         val latencyJson: String         // JSON string of stage latencies
     ) : Screen("results")
     
-    object DebugReplay : Screen("debug_replay")
-    data class ReplayViewer(val replayId: String) : Screen("replay_viewer")
     object Settings : Screen("settings")
+    object About : Screen("about")
+    
+    // Developer & Benchmark capability-gated destinations
+    object DeveloperTools : Screen("developer_tools")
+    data class ReplayViewer(val replayId: String) : Screen("replay_viewer")
+    object BenchmarkRunner : Screen("benchmark_runner")
 }

@@ -5,7 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.example.core.frame.FramePipeline
 import com.example.core.imaging.ImageFrame
 import com.example.core.imaging.ImageSource
-import com.example.core.ocr.OcrPipeline
+import com.example.core.pipeline.OCRPipeline
 import com.example.core.ocr.OcrResult
 import com.example.utils.BitmapAssetLoader
 import kotlinx.coroutines.runBlocking
@@ -25,7 +25,7 @@ class OcrHardeningTest {
         val assetName = assetNames.first()
         val asset = BitmapAssetLoader.loadWithMetadata(context, "$TEST_LABEL_DIR/$assetName")
 
-        val pipeline = OcrPipeline()
+        val pipeline = OCRPipeline()
         val framePipeline = FramePipeline(throttleMs = 0L)
         val frame = ImageFrame.BitmapFrame(
             bitmap = asset.bitmap,
@@ -60,7 +60,7 @@ class OcrHardeningTest {
         val assetName = assetNames.first()
         val asset = BitmapAssetLoader.loadWithMetadata(context, "$TEST_LABEL_DIR/$assetName")
 
-        val pipeline = OcrPipeline()
+        val pipeline = OCRPipeline()
         val framePipeline = FramePipeline(throttleMs = 0L)
 
         val rotations = listOf(90, 180, 270)
@@ -95,7 +95,7 @@ class OcrHardeningTest {
         )
         val framePipeline = FramePipeline(throttleMs = 0L)
         val frameResult = framePipeline(frame)!!
-        val pipeline = OcrPipeline()
+        val pipeline = OCRPipeline()
 
         var threwException = false
         try {
@@ -119,7 +119,7 @@ class OcrHardeningTest {
         )
         val framePipeline = FramePipeline(throttleMs = 0L)
         val frameResult = framePipeline(frame)!!
-        val pipeline = OcrPipeline()
+        val pipeline = OCRPipeline()
 
         val ocrResult = pipeline(Pair(frame, frameResult))
         assertNotNull(ocrResult.skippedReason)
@@ -138,7 +138,7 @@ class OcrHardeningTest {
         assertFalse("Expected test label images in androidTest assets.", assetNames.isEmpty())
 
         val framePipeline = FramePipeline(throttleMs = 0L)
-        val pipeline = OcrPipeline()
+        val pipeline = OCRPipeline()
 
         // Loop over the dataset twice to check stability under repeated workloads
         repeat(2) {
@@ -171,7 +171,7 @@ class OcrHardeningTest {
         val assetName = assetNames.first()
         val asset = BitmapAssetLoader.loadWithMetadata(context, "$TEST_LABEL_DIR/$assetName")
 
-        val pipeline = OcrPipeline()
+        val pipeline = OCRPipeline()
         val framePipeline = FramePipeline(throttleMs = 0L)
 
         // 1. Run full-image OCR on small copy (width = 800) which guarantees full-image processing (1 segment)

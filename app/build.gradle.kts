@@ -17,6 +17,25 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  flavorDimensions.add("mode")
+  productFlavors {
+    create("developer") {
+      dimension = "mode"
+      applicationIdSuffix = ".dev"
+    }
+    create("benchmark") {
+      dimension = "mode"
+      applicationIdSuffix = ".benchmark"
+    }
+    create("internal") {
+      dimension = "mode"
+      applicationIdSuffix = ".internal"
+    }
+    create("production") {
+      dimension = "mode"
+    }
+  }
+
   signingConfigs {
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
@@ -43,10 +62,30 @@ android {
   }
   buildFeatures {
     compose = true
+    buildConfig = true
   }
   sourceSets {
     getByName("debug") {
       assets.directories.add("src/androidTest/assets")
+    }
+    getByName("developer") {
+      assets.directories.add("../benchmark")
+    }
+    getByName("benchmark") {
+      assets.directories.add("../benchmark")
+    }
+  }
+
+  tasks.register("verifyProductionAssets") {
+    val mainAssetsDir = layout.projectDirectory.dir("src/main/assets").asFile
+    doLast {
+      if (mainAssetsDir.exists()) {
+        val hasManifest = mainAssetsDir.walk().any { it.name == "master_manifest.json" }
+        val hasDatasets = mainAssetsDir.walk().any { it.parentFile.name == "datasets" }
+        if (hasManifest || hasDatasets) {
+          throw GradleException("Safety violation: Benchmark datasets or manifests found in production assets directory!")
+        }
+      }
     }
   }
 }
@@ -59,6 +98,8 @@ dependencies {
   implementation(libs.androidx.camera.lifecycle)
   implementation(libs.androidx.camera.view)
   implementation(libs.androidx.compose.material3)
+  implementation(libs.androidx.compose.material.icons.core)
+  implementation(libs.androidx.compose.material.icons.extended)
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.graphics)
   implementation(libs.androidx.compose.ui.tooling.preview)
@@ -67,6 +108,7 @@ dependencies {
   implementation(libs.androidx.lifecycle.viewmodel.compose)
   implementation(libs.androidx.lifecycle.viewmodel.ktx)
   implementation(libs.mlkit.text.recognition)
+  implementation(libs.androidx.datastore.preferences)
   testImplementation(libs.junit)
   androidTestImplementation(platform(libs.androidx.compose.bom))
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
