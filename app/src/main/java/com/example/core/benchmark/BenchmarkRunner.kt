@@ -183,7 +183,7 @@ class BenchmarkRunner(
 
                 // 4. Calculate Stage 10 Semantic Safety metrics
                 val expectedAdditives = gt.expectedCanonical.filter { it.startsWith("e", ignoreCase = true) || ENumberRepository.find(it) != null }.map { it.lowercase().trim() }.toSet()
-                val actualAdditives = result.interpretedIngredients.filter { it.additiveCode != null }.map { it.canonicalName.lowercase().trim() }.toSet()
+                val actualAdditives = result.interpretedIngredients.filter { it.additiveCode != null }.map { (it.canonicalName ?: "").lowercase().trim() }.toSet()
                 val additiveAcc = if (expectedAdditives.isEmpty() && actualAdditives.isEmpty()) 1.0f else {
                     val intersection = expectedAdditives.intersect(actualAdditives).size
                     intersection.toFloat() / maxOf(1, expectedAdditives.size)
@@ -214,10 +214,10 @@ class BenchmarkRunner(
                 }
 
                 val highConfidenceCorrect = result.interpretedIngredients.count { 
-                    it.confidenceBand == com.example.core.confidence.ConfidenceBand.HIGH && it.canonicalName in gt.expectedCanonical 
+                    it.confidence == com.example.core.confidence.ConfidenceBand.HIGH && (it.canonicalName ?: "") in gt.expectedCanonical 
                 }
                 val totalHighConfidence = result.interpretedIngredients.count { 
-                    it.confidenceBand == com.example.core.confidence.ConfidenceBand.HIGH 
+                    it.confidence == com.example.core.confidence.ConfidenceBand.HIGH 
                 }
                 val confidenceCalibrationAcc = if (totalHighConfidence == 0) 1.0f else {
                     highConfidenceCorrect.toFloat() / totalHighConfidence

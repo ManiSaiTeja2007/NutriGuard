@@ -160,10 +160,14 @@ class ScanViewModel : ViewModel() {
     fun ingestTestImage(context: Context, navController: NavController) {
         val validation = _uiState.value.validationState
         val ocrResult = validation.ocrResult
-        if (ocrResult == null || ocrResult.text.isBlank()) return
+        android.util.Log.d("NUTRIGUARD_DEBUG", "ingestTestImage CALLED: ocrResult=${ocrResult != null}, text='${ocrResult?.text?.take(50)}', isIngesting=${_uiState.value.isIngesting}")
+        if (ocrResult == null || ocrResult.text.isBlank()) {
+            android.util.Log.w("NUTRIGUARD_DEBUG", "ingestTestImage EARLY RETURN: ocrResult=$ocrResult, textBlank=${ocrResult?.text?.isBlank()}")
+            return
+        }
 
-        _uiState.update { it.copy(isIngesting = true) }
-        
+        _uiState.update { it.copy(isIngesting = true, errorMsg = null) }
+
         viewModelScope.launch(Dispatchers.Default) {
             try {
                 processAndNavigate(
@@ -172,6 +176,11 @@ class ScanViewModel : ViewModel() {
                     ocrResult = ocrResult,
                     navController = navController
                 )
+            } catch (e: Throwable) {
+                android.util.Log.e("NUTRIGUARD_DEBUG", "Ingestion EXCEPTION for test image: ${e::class.java.simpleName}: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(errorMsg = "${e::class.java.simpleName}: ${e.message}") }
+                }
             } finally {
                 withContext(Dispatchers.Main) {
                     _uiState.update { it.copy(isIngesting = false) }
@@ -185,12 +194,16 @@ class ScanViewModel : ViewModel() {
         if (ocrResult == null || ocrResult.text.isBlank()) return
 
         viewModelScope.launch(Dispatchers.Default) {
-            processAndNavigate(
-                context = context,
-                sourceName = "Live Camera Scan",
-                ocrResult = ocrResult,
-                navController = navController
-            )
+            try {
+                processAndNavigate(
+                    context = context,
+                    sourceName = "Live Camera Scan",
+                    ocrResult = ocrResult,
+                    navController = navController
+                )
+            } catch (e: Throwable) {
+                android.util.Log.e("NUTRIGUARD_DEBUG", "Ingestion failed for live camera", e)
+            }
         }
     }
 
@@ -200,6 +213,7 @@ class ScanViewModel : ViewModel() {
         ocrResult: OcrResult,
         navController: NavController
     ) = withContext(Dispatchers.Default) {
+        android.util.Log.d("NUTRIGUARD_DEBUG", "processAndNavigate START for $sourceName")
         val executionId = java.util.UUID.randomUUID()
         val ocrText = ocrResult.text
         val ocrLatency = ocrResult.processingLatencyMs
@@ -457,6 +471,7 @@ class ScanViewModel : ViewModel() {
             executionId = executionId.toString()
         )
 
+        android.util.Log.d("NUTRIGUARD_DEBUG", "processAndNavigate END - navigating to ResultsScreen")
         withContext(Dispatchers.Main) {
             navController.navigateTo(routeArgs)
         }

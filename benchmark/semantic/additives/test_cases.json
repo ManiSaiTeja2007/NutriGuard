@@ -1,0 +1,27 @@
+{
+  "dataset_name": "Semantic Additives Test Dataset",
+  "category": "additives",
+  "test_cases": [
+    {
+      "id": "additive_001",
+      "input": "E621",
+      "expected_canonical": "monosodium glutamate",
+      "expected_category": "FLAVOUR_ENHANCER",
+      "expected_confidence": "HIGH"
+    },
+    {
+      "id": "additive_002",
+      "input": "INS621",
+      "expected_canonical": "monosodium glutamate",
+      "expected_category": "FLAVOUR_ENHANCER",
+      "expected_confidence": "HIGH"
+    },
+    {
+      "id": "additive_003",
+      "input": "E 621",
+      "expected_canonical": "monosodium glutamate",
+      "expected_category": "FLAVOUR_ENHANCER",
+      "expected_confidence": "HIGH"
+    }
+  ]
+}

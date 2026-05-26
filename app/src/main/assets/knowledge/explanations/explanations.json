@@ -1,0 +1,42 @@
+{
+  "ingredients": {
+    "monosodium glutamate": "flavour enhancer commonly used in processed foods",
+    "citric acid": "acidity regulator and preservative commonly found in fruits",
+    "microcrystalline cellulose": "stabilizer and texturizer derived from wood pulp",
+    "soy lecithin": "emulsifier that helps prevent ingredient separation",
+    "ascorbic acid": "antioxidant and preservative, also known as Vitamin C",
+    "xanthan gum": "thickening agent and stabilizer used for texture consistency",
+    "guar gum": "natural thickening agent obtained from guar beans",
+    "carrageenan": "thickener and stabilizer extracted from red seaweed",
+    "calcium propionate": "preservative commonly used to prevent mold in baked goods",
+    "sodium benzoate": "preservative used in acidic foods to prevent spoilage",
+    "potassium sorbate": "preservative used to prevent mold and yeast growth",
+    "caramel color": "coloring agent manufactured by heating carbohydrates",
+    "titanium dioxide": "white coloring pigment used to alter appearance",
+    "powdered cellulose": "anti-caking agent and texturizer used in powdered foods",
+    "diphosphates": "emulsifier and stabilizer used in processed food products",
+    "sodium carbonates": "acidity regulator and raising agent used in baking",
+    "sucrose": "standard sugar sweetener providing flavor and energy",
+    "high fructose corn syrup": "concentrated liquid sweetener made from corn starch",
+    "stevia": "natural non-caloric sweetener extracted from stevia leaves",
+    "aspartame": "artificial non-caloric sweetener used in low-calorie foods",
+    "sucralose": "artificial sweetener manufactured from sucrose",
+    "acesulfame potassium": "artificial sweetener commonly blended with other sweeteners",
+    "palm oil": "saturated plant-based oil commonly used for texture",
+    "canola oil": "liquid vegetable oil low in saturated fats",
+    "soybean oil": "vegetable oil commonly used in food processing",
+    "coconut oil": "saturated plant-based oil used for cooking and texture"
+  },
+  "categories": {
+    "SWEETENER": "sweetening agent used to add flavor and sweetness to food products",
+    "PRESERVATIVE": "substance added to food products to prevent decay or spoilage and extend shelf life",
+    "EMULSIFIER": "additive that helps mix and stabilize ingredients that would otherwise separate",
+    "STABILIZER": "additive that maintains the physical texture, structure, and consistency of food products",
+    "ACIDITY_REGULATOR": "ingredient used to control or alter the acidity or alkalinity of food products",
+    "FLAVOUR_ENHANCER": "compound added to foods to enhance their existing savory or sweet flavors",
+    "OIL": "fat source commonly used for texture, moisture, or cooking in processed foods",
+    "COLORING": "food additive used to impart or restore color to food products",
+    "ADDITIVE": "general food additive used for technological purposes during processing",
+    "UNKNOWN": "ingredient with an unspecified category or primary function"
+  }
+}

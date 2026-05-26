@@ -1,0 +1,52 @@
+[
+  {
+    "term": "natural flavors",
+    "resolution": "unknown",
+    "reason": "Unspecified flavoring source"
+  },
+  {
+    "term": "spices",
+    "resolution": "unknown",
+    "reason": "Composite ingredient, unclear specific components"
+  },
+  {
+    "term": "vegetable oil",
+    "resolution": "unknown",
+    "reason": "Generic oil source, may contain palm oil"
+  },
+  {
+    "term": "color added",
+    "resolution": "unknown",
+    "reason": "Unspecified coloring source"
+  },
+  {
+    "term": "flavouring substances",
+    "resolution": "unknown",
+    "reason": "Generic flavoring agents"
+  },
+  {
+    "term": "permitted colors",
+    "resolution": "unknown",
+    "reason": "Unspecified color additives"
+  },
+  {
+    "term": "masala",
+    "resolution": "unknown",
+    "reason": "Indian generic spice mix"
+  },
+  {
+    "term": "spice mix",
+    "resolution": "unknown",
+    "reason": "Generic spice blend"
+  },
+  {
+    "term": "curry powder",
+    "resolution": "unknown",
+    "reason": "Composite spice blend"
+  },
+  {
+    "term": "mixed spices",
+    "resolution": "unknown",
+    "reason": "Composite generic spices"
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "dataset_name": "Semantic Replay Test Dataset",
+  "category": "replay",
+  "test_cases": [
+    {
+      "id": "replay_001",
+      "input": "msg",
+      "expected_canonical": "monosodium glutamate",
+      "expected_category": "FLAVOUR_ENHANCER",
+      "expected_confidence": "HIGH"
+    }
+  ]
+}

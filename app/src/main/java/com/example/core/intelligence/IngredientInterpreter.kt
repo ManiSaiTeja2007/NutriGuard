@@ -1,13 +1,15 @@
 package com.example.core.intelligence
 
+import com.example.core.normalization.DefaultIngredientNormalizer
+import com.example.core.aliases.AliasRepairEngine
+import com.example.core.ambiguity.AmbiguityResolver
+import com.example.core.additives.AdditiveResolver
 import com.example.core.ontology.OntologyRepository
-import com.example.core.additives.ENumberRepository
-import com.example.core.explanation.IngredientExplanationEngine
+import com.example.core.ontology.IngredientCategory
 import com.example.core.confidence.ConfidenceEvaluator
 import com.example.core.confidence.ConfidenceBand
+import com.example.core.explanation.IngredientExplanationEngine
 import com.example.core.risk.RiskInterpreter
-import com.example.core.ontology.IngredientCategory
-import com.example.core.normalization.IngredientNormalizer
 import java.util.Locale
 
 object IngredientInterpreter {
@@ -15,106 +17,179 @@ object IngredientInterpreter {
     val metadata = KnowledgeMetadata(
         ontologyVersion = "1.0.0",
         additiveVersion = "1.0.0",
-        explanationVersion = "1.0.0",
-        calibrationVersion = "1.0.0"
+        normalizationVersion = "1.0.0",
+        aliasVersion = "1.0.0"
     )
 
     /**
-     * Pure ingredient interpreter. Coordinates ontology/additives lookup, normalizes inputs,
-     * assigns discrete confidence bands, pulls explanations, and assigns conservative risk warnings.
-     * Contains NO side effects (no file writing, no UI mutations, no navigation).
+     * Coordinated semantic intelligence interpreter.
+     * Integrates normalization, alias repair, additive resolution, confidence calibration,
+     * static explanations, and conservative risk evaluations.
      */
     fun interpret(
         canonicalName: String,
         confidence: Float,
         originalToken: String = ""
     ): InterpretedIngredient {
-        val normalizedQuery = IngredientNormalizer.normalize(canonicalName)
-
-        val ontologyEntry = OntologyRepository.find(normalizedQuery)
-        val additiveEntry = ENumberRepository.find(normalizedQuery)
-
+        val rawText = originalToken.ifEmpty { canonicalName }
         val failuresList = mutableListOf<InterpretationFailure>()
 
-        // 1. Fallback State if ontology match fails (safeguard against aggressive guessing)
+        // 1. Normalization Stage
+        val normResult = DefaultIngredientNormalizer.normalize(rawText)
+        val normalizedText = normResult.normalizedText
+
+        // 2. Alias Repair Stage
+        val aliasResult = AliasRepairEngine.repair(normalizedText)
+        val aliasRepairedText = aliasResult.repairedText
+        if (aliasResult.isRepaired) {
+            failuresList.add(InterpretationFailure.AMBIGUOUS_ALIAS)
+        }
+
+        // 3. Ambiguity Check Safeguard
+        if (AmbiguityResolver.isAmbiguous(aliasRepairedText)) {
+            failuresList.add(InterpretationFailure.FALSE_INTERPRETATION_RISK)
+            val finalExplanation = IngredientExplanationEngine.explain(rawText, IngredientCategory.UNKNOWN)
+            val trace = InterpretationTrace(
+                ocrText = rawText,
+                normalizedText = normalizedText,
+                aliasRepairedText = aliasRepairedText,
+                ontologyMatchedName = null,
+                confidenceBand = ConfidenceBand.UNCERTAIN.name,
+                finalInterpretation = finalExplanation
+            )
+            return InterpretedIngredient(
+                originalText = rawText,
+                normalizedText = normalizedText,
+                canonicalName = null,
+                category = IngredientCategory.UNKNOWN,
+                confidence = ConfidenceBand.UNCERTAIN,
+                additiveCode = null,
+                explanation = finalExplanation,
+                warnings = emptyList(),
+                failures = failuresList,
+                trace = trace,
+                resolutionSource = ResolutionSource.UNKNOWN
+            )
+        }
+
+        // 4. Additive / E-number check
+        val additiveEntry = AdditiveResolver.resolve(aliasRepairedText)
+        
+        // 5. Ontology lookup
+        val ontologyEntry = OntologyRepository.find(aliasRepairedText)
+
+        // 6. Safeguard: Ontology/Additive miss or weak confidence
         if (ontologyEntry == null && additiveEntry == null) {
             failuresList.add(InterpretationFailure.ONTOLOGY_MISS)
+            failuresList.add(InterpretationFailure.UNKNOWN_INGREDIENT)
             
-            val assessment = ConfidenceEvaluator.assess(confidence, canonicalName)
-            val fallbackExplanation = IngredientExplanationEngine.explain(
-                canonicalName = assessment.displayMessage,
-                category = IngredientCategory.UNKNOWN,
-                additiveCode = null
+            val finalExplanation = IngredientExplanationEngine.explain(rawText, IngredientCategory.UNKNOWN)
+            val trace = InterpretationTrace(
+                ocrText = rawText,
+                normalizedText = normalizedText,
+                aliasRepairedText = aliasRepairedText,
+                ontologyMatchedName = null,
+                confidenceBand = ConfidenceBand.UNCERTAIN.name,
+                finalInterpretation = finalExplanation
             )
-
-            val warnings = mutableListOf<String>()
-            if (assessment.isAmbiguous) {
-                warnings.add("Possible match with moderate or low confidence. Original scan was: \"$originalToken\"")
-            }
-
             return InterpretedIngredient(
-                canonicalName = canonicalName,
+                originalText = rawText,
+                normalizedText = normalizedText,
+                canonicalName = null,
                 category = IngredientCategory.UNKNOWN,
-                confidence = confidence,
-                confidenceBand = assessment.band,
+                confidence = ConfidenceBand.UNCERTAIN,
                 additiveCode = null,
-                explanation = fallbackExplanation,
-                warnings = warnings,
+                explanation = finalExplanation,
+                warnings = emptyList(),
                 failures = failuresList,
-                trace = InterpretationTrace(
-                    matchedAlias = null,
-                    confidence = confidence,
-                    ontologySource = null,
-                    resolutionPath = "fallback_unknown"
-                )
+                trace = trace,
+                resolutionSource = ResolutionSource.UNKNOWN
             )
         }
 
-        // 2. Resolve entries
-        val resolvedCategory = ontologyEntry?.category ?: additiveEntry!!.category
-        val resolvedAdditiveCode = ontologyEntry?.additiveCode ?: additiveEntry!!.code
-        val resolvedCanonical = ontologyEntry?.canonicalName ?: additiveEntry!!.canonicalName
+        // 7. Resolve canonical values and category
+        val resolvedCategory = ontologyEntry?.category ?: additiveEntry?.category ?: IngredientCategory.UNKNOWN
+        val resolvedAdditiveCode = ontologyEntry?.additiveCode ?: additiveEntry?.code
+        val resolvedCanonical = ontologyEntry?.canonicalName ?: additiveEntry?.canonicalName ?: "unknown"
         val tags = ontologyEntry?.tags ?: emptyList()
 
-        // 3. Assess confidence bands
+        // 8. Confidence Band assessment
         val assessment = ConfidenceEvaluator.assess(confidence, resolvedCanonical)
         
-        // 4. Retrieve explanation
-        val explanation = IngredientExplanationEngine.explain(
-            canonicalName = assessment.displayMessage,
-            category = resolvedCategory,
-            additiveCode = resolvedAdditiveCode
-        )
-
-        // 5. Evaluate warnings
-        val warnings = mutableListOf<String>()
-        if (assessment.isAmbiguous) {
-            warnings.add("Possible match with moderate or low confidence. Original scan was: \"$originalToken\"")
-            failuresList.add(InterpretationFailure.LOW_CONFIDENCE_MATCH)
+        // Resolve the resolution source
+        val rawSource = when {
+            additiveEntry != null -> ResolutionSource.ADDITIVE_PARSE
+            aliasResult.isTransliteration -> ResolutionSource.TRANSLITERATION
+            aliasResult.isRepaired -> ResolutionSource.ALIAS_MATCH
+            normalizedText == resolvedCanonical -> ResolutionSource.EXACT_MATCH
+            else -> ResolutionSource.FUZZY_MATCH
         }
 
-        val riskWarnings = RiskInterpreter.evaluate(resolvedCanonical, resolvedCategory, tags)
-        warnings.addAll(riskWarnings)
+        // Apply Transliteration Confidence cap: remains MODERATE unless extra context is present
+        val finalConfidenceBand = if (rawSource == ResolutionSource.TRANSLITERATION) {
+            // Cap confidence at MODERATE
+            if (assessment.band == ConfidenceBand.HIGH) ConfidenceBand.MODERATE else assessment.band
+        } else {
+            assessment.band
+        }
+        
+        // Safeguard if final confidence is weak (LOW or UNCERTAIN) -> return UNKNOWN / UNCERTAIN
+        if (finalConfidenceBand == ConfidenceBand.LOW || finalConfidenceBand == ConfidenceBand.UNCERTAIN) {
+            failuresList.add(InterpretationFailure.LOW_CONFIDENCE_MATCH)
+            val finalExplanation = IngredientExplanationEngine.explain(rawText, IngredientCategory.UNKNOWN)
+            val trace = InterpretationTrace(
+                ocrText = rawText,
+                normalizedText = normalizedText,
+                aliasRepairedText = aliasRepairedText,
+                ontologyMatchedName = null,
+                confidenceBand = ConfidenceBand.UNCERTAIN.name,
+                finalInterpretation = finalExplanation
+            )
+            return InterpretedIngredient(
+                originalText = rawText,
+                normalizedText = normalizedText,
+                canonicalName = null,
+                category = IngredientCategory.UNKNOWN,
+                confidence = ConfidenceBand.UNCERTAIN,
+                additiveCode = null,
+                explanation = finalExplanation,
+                warnings = emptyList(),
+                failures = failuresList,
+                trace = trace,
+                resolutionSource = ResolutionSource.UNKNOWN
+            )
+        }
 
-        if (additiveEntry != null && resolvedCanonical != normalizedQuery) {
+        // 9. Static Explanation
+        val explanation = IngredientExplanationEngine.explain(resolvedCanonical, resolvedCategory)
+
+        // 10. Conservative Warning rules
+        val warnings = RiskInterpreter.evaluate(resolvedCanonical, resolvedCategory, tags).toMutableList()
+        if (additiveEntry != null && resolvedCanonical != aliasRepairedText) {
             failuresList.add(InterpretationFailure.AMBIGUOUS_E_NUMBER)
         }
 
+        val trace = InterpretationTrace(
+            ocrText = rawText,
+            normalizedText = normalizedText,
+            aliasRepairedText = aliasRepairedText,
+            ontologyMatchedName = resolvedCanonical,
+            confidenceBand = finalConfidenceBand.name,
+            finalInterpretation = explanation
+        )
+
         return InterpretedIngredient(
+            originalText = rawText,
+            normalizedText = normalizedText,
             canonicalName = resolvedCanonical,
             category = resolvedCategory,
-            confidence = confidence,
-            confidenceBand = assessment.band,
+            confidence = finalConfidenceBand,
             additiveCode = resolvedAdditiveCode,
             explanation = explanation,
             warnings = warnings,
             failures = failuresList,
-            trace = InterpretationTrace(
-                matchedAlias = if (normalizedQuery != resolvedCanonical) normalizedQuery else null,
-                confidence = confidence,
-                ontologySource = resolvedAdditiveCode ?: "ontology",
-                resolutionPath = if (ontologyEntry != null) "ontology_lookup" else "additives_lookup"
-            )
+            trace = trace,
+            resolutionSource = rawSource
         )
     }
 }

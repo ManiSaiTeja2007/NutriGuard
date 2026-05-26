@@ -1,0 +1,13 @@
+{
+  "dataset_name": "Semantic Confidence Test Dataset",
+  "category": "confidence",
+  "test_cases": [
+    {
+      "id": "confidence_001",
+      "input": "salt",
+      "expected_canonical": "salt",
+      "expected_category": "UNKNOWN",
+      "expected_confidence": "HIGH"
+    }
+  ]
+}

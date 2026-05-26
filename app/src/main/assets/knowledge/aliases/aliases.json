@@ -1,0 +1,15 @@
+{
+  "msg": { "resolved": "monosodium glutamate", "isTransliteration": false },
+  "slt": { "resolved": "salt", "isTransliteration": false },
+  "citricacd": { "resolved": "citric acid", "isTransliteration": false },
+  "citnc acid": { "resolved": "citric acid", "isTransliteration": false },
+  "emulsfier": { "resolved": "emulsifier", "isTransliteration": false },
+  "veg oil": { "resolved": "vegetable oil", "isTransliteration": false },
+  "veg oi1": { "resolved": "vegetable oil", "isTransliteration": false },
+  "ins621": { "resolved": "e621", "isTransliteration": false },
+  "ins 621": { "resolved": "e621", "isTransliteration": false },
+  "ins-621": { "resolved": "e621", "isTransliteration": false },
+  "haldi": { "resolved": "turmeric", "isTransliteration": true },
+  "namak": { "resolved": "salt", "isTransliteration": true },
+  "dahi": { "resolved": "yogurt", "isTransliteration": true }
+}

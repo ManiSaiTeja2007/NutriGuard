@@ -1,0 +1,20 @@
+{
+  "dataset_name": "Multilingual Calibration Dataset",
+  "version": "1.1.0",
+  "languages": {
+    "hi": [
+      { "text": "हल्दी", "language": "hi", "transliteration": "haldi", "expected_canonical": "turmeric" },
+      { "text": "नमक", "language": "hi", "transliteration": "namak", "expected_canonical": "salt" },
+      { "text": "दही", "language": "hi", "transliteration": "dahi", "expected_canonical": "yogurt" }
+    ],
+    "de": [
+      { "text": "wasser", "language": "de", "transliteration": "wasser", "expected_canonical": "water" }
+    ]
+  },
+  "mixed_labels": [
+    {
+      "input": "salt, haldi, spices",
+      "expected_canonical": ["salt", "turmeric", "spices"]
+    }
+  ]
+}

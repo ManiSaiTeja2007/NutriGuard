@@ -1,0 +1,11 @@
+{
+  "high_threshold": 0.85,
+  "moderate_threshold": 0.70,
+  "low_threshold": 0.50,
+  "messages": {
+    "HIGH": "Exact Ontology Match",
+    "MODERATE": "Alias Repair Match",
+    "LOW": "Fuzzy Ambiguous Match",
+    "UNCERTAIN": "Unknown Ingredient"
+  }
+}

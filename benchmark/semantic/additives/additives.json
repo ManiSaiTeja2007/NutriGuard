@@ -1,0 +1,9 @@
+{
+  "dataset_name": "E-Number Additive Calibration Dataset",
+  "version": "1.0.0",
+  "additives": [
+    { "code": "E621", "canonical": "monosodium glutamate" },
+    { "code": "E330", "canonical": "citric acid" },
+    { "code": "E500(ii)", "canonical": "sodium carbonates" }
+  ]
+}

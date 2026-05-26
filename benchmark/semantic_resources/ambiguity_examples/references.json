@@ -1,0 +1,22 @@
+{
+  "source": "Semantic Ambiguity Examples",
+  "version": "1.0.0",
+  "examples": [
+    {
+      "term": "caramel color",
+      "ambiguity": "Could refer to standard food coloring or an allergen-derived ingredient"
+    },
+    {
+      "term": "natural flavor",
+      "ambiguity": "Unspecified source, potential allergen/chemical compound"
+    },
+    {
+      "term": "spice blend",
+      "ambiguity": "Composite ingredient, unclear specific components"
+    },
+    {
+      "term": "vegetable oil",
+      "ambiguity": "Generic term, may contain palm oil, soy oil, or canola oil"
+    }
+  ]
+}

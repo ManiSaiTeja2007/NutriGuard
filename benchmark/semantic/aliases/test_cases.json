@@ -1,0 +1,20 @@
+{
+  "dataset_name": "Semantic Aliases Test Dataset",
+  "category": "aliases",
+  "test_cases": [
+    {
+      "id": "alias_001",
+      "input": "msg",
+      "expected_canonical": "monosodium glutamate",
+      "expected_category": "FLAVOUR_ENHANCER",
+      "expected_confidence": "HIGH"
+    },
+    {
+      "id": "alias_002",
+      "input": "veg oil",
+      "expected_canonical": "vegetable oil",
+      "expected_category": "OIL",
+      "expected_confidence": "HIGH"
+    }
+  ]
+}

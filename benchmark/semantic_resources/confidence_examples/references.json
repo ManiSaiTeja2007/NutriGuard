@@ -1,0 +1,26 @@
+{
+  "source": "Confidence Calibration Bands",
+  "version": "1.0.0",
+  "examples": [
+    {
+      "band": "HIGH",
+      "criteria": "Exact ontology match",
+      "example_input": "salt"
+    },
+    {
+      "band": "MODERATE",
+      "criteria": "Alias repair match",
+      "example_input": "slt"
+    },
+    {
+      "band": "LOW",
+      "criteria": "Fuzzy ambiguous match",
+      "example_input": "citricacd"
+    },
+    {
+      "band": "UNCERTAIN",
+      "criteria": "Unknown ingredient",
+      "example_input": "unknown"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "en:salt": {
+    "name": {
+      "en": "salt",
+      "fr": "sel",
+      "de": "Salz"
+    }
+  },
+  "en:sugar": {
+    "name": {
+      "en": "sugar",
+      "fr": "sucre",
+      "de": "Zucker"
+    }
+  },
+  "en:water": {
+    "name": {
+      "en": "water",
+      "fr": "eau",
+      "de": "Wasser"
+    }
+  }
+}

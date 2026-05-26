@@ -5,11 +5,11 @@ import java.util.Locale
 
 object RiskInterpreter {
     /**
-     *Deterministic, conservative risk tagger. Exposes consumer warnings solely based on factual
+     * Deterministic, conservative risk tagger. Exposes consumer warnings solely based on factual
      * properties (e.g. sugar content, emulsifiers/stabilizers).
      *
      * IMPORTANT: Contains NO references to words like "unsafe", "dangerous", "causes disease", or
-     * "medically harmful" to ensure safety and prevent legal/diagnostic liability.
+     * "toxic chemical" to ensure safety and prevent legal/diagnostic liability.
      */
     fun evaluate(canonicalName: String, category: IngredientCategory, tags: List<String>): List<String> {
         val warnings = mutableListOf<String>()
@@ -35,11 +35,18 @@ object RiskInterpreter {
             warnings.add("high sugar content")
         }
 
-        // 3. Artificial flavouring warning
+        // 3. Artificial flavoring warning
         if (category == IngredientCategory.FLAVOUR_ENHANCER || 
             cleanName == "monosodium glutamate" || 
             tags.contains("artificial_sweetener")) {
-            warnings.add("contains artificial flavouring or flavor enhancers")
+            warnings.add("contains artificial flavoring")
+        }
+
+        // 4. High sodium warning
+        if (cleanName == "salt" || 
+            cleanName == "sodium chloride" || 
+            cleanName == "monosodium glutamate") {
+            warnings.add("high sodium content")
         }
 
         return warnings

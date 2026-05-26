@@ -1,0 +1,13 @@
+{
+  "dataset_name": "Semantic Unknowns Test Dataset",
+  "category": "unknowns",
+  "test_cases": [
+    {
+      "id": "unknown_001",
+      "input": "xyzunknowningredient",
+      "expected_canonical": null,
+      "expected_category": "UNKNOWN",
+      "expected_confidence": "UNCERTAIN"
+    }
+  ]
+}

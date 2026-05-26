@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
         // Initialize persistent settings repository via DataStore
         val settingsRepository = SettingsRepository(applicationContext)
         AppSettings.initialize(applicationContext, settingsRepository)
+        com.example.core.utils.AssetLoader.initialize(applicationContext)
 
         super.onCreate(savedInstanceState)
 

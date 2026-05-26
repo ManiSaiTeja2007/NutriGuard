@@ -1,0 +1,21 @@
+{
+  "source": "OpenFoodFacts ingredients taxonomy",
+  "version": "1.0.0",
+  "examples": [
+    {
+      "name": "monosodium glutamate",
+      "category": "FLAVOUR_ENHANCER",
+      "additive_code": "E621"
+    },
+    {
+      "name": "citric acid",
+      "category": "ACIDITY_REGULATOR",
+      "additive_code": "E330"
+    },
+    {
+      "name": "microcrystalline cellulose",
+      "category": "STABILIZER",
+      "additive_code": "E460(i)"
+    }
+  ]
+}

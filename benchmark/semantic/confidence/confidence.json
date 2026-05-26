@@ -1,0 +1,10 @@
+{
+  "dataset_name": "Confidence Calibration Dataset",
+  "version": "1.0.0",
+  "cases": [
+    { "input": "salt", "ocr_confidence": 0.99, "expected_band": "HIGH" },
+    { "input": "slt", "ocr_confidence": 0.85, "expected_band": "MODERATE" },
+    { "input": "citricacd", "ocr_confidence": 0.60, "expected_band": "LOW" },
+    { "input": "unknowningredient", "ocr_confidence": 0.30, "expected_band": "UNCERTAIN" }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "en:e330": {
+    "name": {
+      "en": "citric acid",
+      "fr": "acide citrique",
+      "de": "Zitronensäure"
+    },
+    "wikidata": {
+      "en": "Q159683"
+    }
+  },
+  "en:e621": {
+    "name": {
+      "en": "monosodium glutamate",
+      "fr": "glutamate monosodique",
+      "de": "Mononatriumglutamat"
+    },
+    "wikidata": {
+      "en": "Q207857"
+    }
+  },
+  "en:e322": {
+    "name": {
+      "en": "lecithins",
+      "fr": "lécithines",
+      "de": "Lecithine"
+    },
+    "wikidata": {
+      "en": "Q190693"
+    }
+  }
+}

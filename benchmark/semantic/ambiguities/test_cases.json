@@ -1,0 +1,13 @@
+{
+  "dataset_name": "Semantic Ambiguities Test Dataset",
+  "category": "ambiguities",
+  "test_cases": [
+    {
+      "id": "ambiguity_001",
+      "input": "caramel color",
+      "expected_canonical": "caramel color",
+      "expected_category": "COLORING",
+      "expected_confidence": "HIGH"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "dataset_name": "Difficult Packaging Calibration Dataset",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "diff_001",
+      "issue": "curved packaging",
+      "ocr_raw": "citn-c acid",
+      "expected": "citric acid"
+    },
+    {
+      "id": "diff_002",
+      "issue": "blurry label",
+      "ocr_raw": "e62i",
+      "expected": "e621"
+    }
+  ]
+}

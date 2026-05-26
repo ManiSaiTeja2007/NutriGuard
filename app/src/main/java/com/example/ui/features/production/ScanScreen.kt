@@ -479,6 +479,19 @@ private fun TestImagesPanel(
             }
         }
 
+        // Error label — only shown on ingestion failure. Tagged for instrumentation observability.
+        uiState.errorMsg?.let { errorText ->
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = errorText,
+                color = Color(0xFFE74C3C),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("scan_ingest_error_label")
+            )
+        }
+
         Spacer(modifier = Modifier.height(8.dp))
 
         if (showOverlaysSupported && AppSettings.showOverlays) {

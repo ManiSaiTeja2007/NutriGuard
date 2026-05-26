@@ -145,7 +145,7 @@ class PipelineRunner(
             replayCollector.addStage(
                 stageName = "interpretation",
                 input = semanticIngredients.map { "${it.canonical} (${it.confidence})" }.joinToString(", "),
-                output = interpretedIngredients.map { "${it.canonicalName} -> [Cat: ${it.category}, Code: ${it.additiveCode}]" }.joinToString(", "),
+                output = interpretedIngredients.map { "${it.canonicalName ?: "null"} -> [Cat: ${it.category}, Code: ${it.additiveCode}]" }.joinToString(", "),
                 latencyMs = interpretLatency
             )
         }

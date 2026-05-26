@@ -170,14 +170,28 @@ class SessionExporter(
         val arr = JSONArray()
         result.interpretedIngredients.forEach { ing ->
             arr.put(JSONObject().apply {
-                put("ingredient", ing.canonicalName)
+                put("originalText", ing.originalText)
+                put("normalizedText", ing.normalizedText)
+                put("canonicalName", ing.canonicalName ?: "")
+                put("confidence", ing.confidence.name)
                 put("category", ing.category.name)
-                put("confidenceBand", ing.confidenceBand.name)
                 put("additiveCode", ing.additiveCode ?: "")
                 put("explanation", ing.explanation ?: "")
                 val warningsArr = JSONArray()
                 ing.warnings.forEach { warningsArr.put(it) }
                 put("warnings", warningsArr)
+                put("resolutionSource", ing.resolutionSource.name)
+                
+                ing.trace?.let { t ->
+                    put("trace", JSONObject().apply {
+                        put("ocrText", t.ocrText)
+                        put("normalizedText", t.normalizedText)
+                        put("aliasRepairedText", t.aliasRepairedText)
+                        put("ontologyMatchedName", t.ontologyMatchedName ?: "")
+                        put("confidenceBand", t.confidenceBand)
+                        put("finalInterpretation", t.finalInterpretation)
+                    })
+                }
             })
         }
         return arr.toString(2)

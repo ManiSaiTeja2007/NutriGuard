@@ -1,0 +1,18 @@
+{
+  "datasets": [
+    {
+      "name": "OpenFoodFacts Taxonomies",
+      "url": "https://world.openfoodfacts.org/data",
+      "local_path": "benchmark/semantic/ingredient_labels/openfoodfacts/",
+      "version": "1.0.0",
+      "description": "Primary taxonomy dataset for offline ingredient and additive mapping."
+    },
+    {
+      "name": "Ingredients Image From Food Label",
+      "url": "https://www.kaggle.com/datasets/shensivam/ingredients-image-from-food-label",
+      "local_path": "benchmark/semantic/difficult_cases/",
+      "version": "1.0.0",
+      "description": "Kaggle source dataset for packaging images and annotations."
+    }
+  ]
+}

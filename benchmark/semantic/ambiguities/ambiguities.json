@@ -1,0 +1,15 @@
+{
+  "dataset_name": "Semantic Ambiguities Calibration Dataset",
+  "version": "1.1.0",
+  "ambiguities": [
+    { "term": "natural flavors", "expected_action": "preserve_as_uncertain" },
+    { "term": "spices", "expected_action": "preserve_as_uncertain" },
+    { "term": "vegetable oil", "expected_action": "resolve_to_generic_or_uncertain" },
+    { "term": "color added", "expected_action": "preserve_as_uncertain" },
+    { "term": "flavouring substances", "expected_action": "preserve_as_uncertain" },
+    { "term": "permitted colors", "expected_action": "preserve_as_uncertain" },
+    { "term": "masala", "expected_action": "preserve_as_uncertain" },
+    { "term": "spice mix", "expected_action": "preserve_as_uncertain" },
+    { "term": "mixed spices", "expected_action": "preserve_as_uncertain" }
+  ]
+}

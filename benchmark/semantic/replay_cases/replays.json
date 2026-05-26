@@ -1,0 +1,14 @@
+{
+  "dataset_name": "Semantic Replay Calibration Dataset",
+  "version": "1.0.0",
+  "replays": [
+    {
+      "ocr": "msg",
+      "normalization": "msg",
+      "alias_repair": "monosodium glutamate",
+      "ontology_match": "monosodium glutamate",
+      "confidence_calibration": "HIGH",
+      "final_interpretation": "Monosodium Glutamate\n→ flavour enhancer commonly used in processed foods"
+    }
+  ]
+}

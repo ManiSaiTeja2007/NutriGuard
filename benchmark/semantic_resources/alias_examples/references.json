@@ -1,0 +1,30 @@
+{
+  "source": "OCR Alias Examples",
+  "version": "1.0.0",
+  "examples": [
+    {
+      "input": "msg",
+      "expected_repaired": "monosodium glutamate"
+    },
+    {
+      "input": "slt",
+      "expected_repaired": "salt"
+    },
+    {
+      "input": "citricacd",
+      "expected_repaired": "citric acid"
+    },
+    {
+      "input": "emulsfier",
+      "expected_repaired": "emulsifier"
+    },
+    {
+      "input": "ins621",
+      "expected_repaired": "e621"
+    },
+    {
+      "input": "veg oil",
+      "expected_repaired": "vegetable oil"
+    }
+  ]
+}

@@ -2,23 +2,35 @@ package com.example.core.normalization
 
 import java.util.Locale
 
-object IngredientNormalizer {
+data class NormalizedIngredient(
+    val originalText: String,
+    val normalizedText: String
+)
+
+interface IngredientNormalizer {
+    fun normalize(input: String): NormalizedIngredient
+}
+
+object DefaultIngredientNormalizer : IngredientNormalizer {
     private val punctuationRegex = Regex("[.,;:|*•~_\\-\"]")
 
-    /**
-     * Normalizes a single ingredient token before ontology or additive lookup.
-     * Lowercases the string, strips common punctuation while preserving parentheses 
-     * (critical for additive codes like E460(i)), and collapses duplicate whitespace.
-     */
-    fun normalize(text: String): String {
-        var clean = text.lowercase(Locale.ROOT).trim()
+    override fun normalize(input: String): NormalizedIngredient {
+        var clean = input.lowercase(Locale.ROOT).trim()
         
-        // Replace punctuation with spaces to avoid joining words
+        // Punctuation cleanup (preserve parentheses for E-numbers/INS like E460(i))
         clean = clean.replace(punctuationRegex, " ")
         
-        // Standardize spacing
+        // Spacing normalization
         clean = clean.replace(Regex("\\s+"), " ")
         
-        return clean.trim()
+        // Normalization of common OCR spacing issues in E-numbers (e.g., "e 621" -> "e621")
+        if (clean.startsWith("e ") || clean.startsWith("ins ")) {
+            clean = clean.replace(" ", "")
+        }
+
+        return NormalizedIngredient(
+            originalText = input,
+            normalizedText = clean.trim()
+        )
     }
 }

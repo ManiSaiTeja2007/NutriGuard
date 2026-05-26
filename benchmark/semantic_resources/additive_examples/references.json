@@ -1,0 +1,18 @@
+{
+  "source": "FDA and European E-number references",
+  "version": "1.0.0",
+  "examples": [
+    {
+      "code": "E621",
+      "canonical_name": "Monosodium Glutamate"
+    },
+    {
+      "code": "E330",
+      "canonical_name": "Citric Acid"
+    },
+    {
+      "code": "E500(ii)",
+      "canonical_name": "Sodium Bicarbonate"
+    }
+  ]
+}

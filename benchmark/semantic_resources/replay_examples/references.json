@@ -1,0 +1,14 @@
+{
+  "source": "Semantic Replay Examples",
+  "version": "1.0.0",
+  "examples": [
+    {
+      "ocr": "msg",
+      "normalization": "msg",
+      "alias_repair": "monosodium glutamate",
+      "ontology_match": "monosodium glutamate",
+      "confidence_calibration": "HIGH",
+      "final_interpretation": "Monosodium Glutamate is a flavor enhancer commonly found in processed foods"
+    }
+  ]
+}

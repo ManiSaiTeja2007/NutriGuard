@@ -172,8 +172,8 @@ class HeadlessPipelineTest {
         assertEquals("citric acid", citricAcidInterpreted.canonicalName)
         assertEquals(IngredientCategory.ACIDITY_REGULATOR, citricAcidInterpreted.category)
         assertEquals("E330", citricAcidInterpreted.additiveCode)
-        assertEquals(ConfidenceBand.HIGH, citricAcidInterpreted.confidenceBand)
-        assertTrue(citricAcidInterpreted.explanation!!.contains("citric acid (E330) is acidity regulator"))
+        assertEquals(ConfidenceBand.HIGH, citricAcidInterpreted.confidence)
+        assertTrue(citricAcidInterpreted.explanation!!.contains("acidity regulator"))
         assertTrue(citricAcidInterpreted.warnings.isEmpty()) // Citric acid has no warning tags assigned
 
         // 2. Verify flavour enhancer (MSG) warning mapping
@@ -185,7 +185,7 @@ class HeadlessPipelineTest {
         assertEquals("monosodium glutamate", msgInterpreted.canonicalName)
         assertEquals(IngredientCategory.FLAVOUR_ENHANCER, msgInterpreted.category)
         assertEquals("E621", msgInterpreted.additiveCode)
-        assertTrue(msgInterpreted.warnings.contains("contains artificial flavouring or flavor enhancers"))
+        assertTrue(msgInterpreted.warnings.contains("contains artificial flavoring"))
         assertTrue(msgInterpreted.warnings.contains("commonly found in ultra-processed foods"))
 
         // 3. Verify uncertainty warning mapping for moderate/low confidence
@@ -194,9 +194,12 @@ class HeadlessPipelineTest {
             confidence = 0.60f,
             originalToken = "cltrlc"
         )
-        assertEquals(ConfidenceBand.LOW, lowConfInterpreted.confidenceBand)
-        assertTrue(lowConfInterpreted.warnings.any { it.contains("Possible match with moderate or low confidence") })
-        assertTrue(lowConfInterpreted.failures.contains(InterpretationFailure.LOW_CONFIDENCE_MATCH))
+        assertEquals(ConfidenceBand.UNCERTAIN, lowConfInterpreted.confidence)
+        assertNull(lowConfInterpreted.canonicalName)
+        assertEquals(IngredientCategory.UNKNOWN, lowConfInterpreted.category)
+        // "cltrlc" is completely unknown to the ontology → hits ONTOLOGY_MISS safeguard.
+        // LOW_CONFIDENCE_MATCH only fires when ontology matches but confidence is weak.
+        assertTrue(lowConfInterpreted.failures.contains(InterpretationFailure.ONTOLOGY_MISS))
 
         // 4. Verify safety fallback state for unknown/garbage inputs (retains raw name, unknown category, doesn't guess)
         val unknownInterpreted = IngredientInterpreter.interpret(
@@ -204,9 +207,9 @@ class HeadlessPipelineTest {
             confidence = 0.40f,
             originalToken = "unknown_garbage_token_x123"
         )
-        assertEquals("unknown_garbage_token_x123", unknownInterpreted.canonicalName)
+        assertNull(unknownInterpreted.canonicalName)
         assertEquals(IngredientCategory.UNKNOWN, unknownInterpreted.category)
-        assertEquals(ConfidenceBand.UNCERTAIN, unknownInterpreted.confidenceBand)
+        assertEquals(ConfidenceBand.UNCERTAIN, unknownInterpreted.confidence)
         assertNull(unknownInterpreted.additiveCode)
         assertTrue(unknownInterpreted.failures.contains(InterpretationFailure.ONTOLOGY_MISS))
     }

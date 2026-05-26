@@ -1,0 +1,12 @@
+{
+  "dataset_name": "Shorthand Aliases Calibration Dataset",
+  "version": "1.0.0",
+  "aliases": [
+    { "input": "msg", "resolved": "monosodium glutamate" },
+    { "input": "veg oil", "resolved": "vegetable oil" },
+    { "input": "raising agent", "resolved": "sodium carbonates" },
+    { "input": "emulsifier", "resolved": "soy lecithin" },
+    { "input": "stabilizer", "resolved": "xanthan gum" },
+    { "input": "acidity regulator", "resolved": "citric acid" }
+  ]
+}
