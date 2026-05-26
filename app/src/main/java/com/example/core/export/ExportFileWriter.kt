@@ -8,11 +8,12 @@ import java.security.MessageDigest
 class ExportFileWriter(private val context: Context) {
 
     fun getExportDir(executionId: String): File? {
-        val root = context.getExternalFilesDir("exports") ?: return null
+        val root = context.getExternalFilesDir("exports") ?: File(context.filesDir, "exports")
+        if (!root.exists() && !root.mkdirs()) return null
+
         val dir = File(root, executionId)
-        if (!dir.exists()) {
-            dir.mkdirs()
-        }
+        if (!dir.exists() && !dir.mkdirs()) return null
+
         return dir
     }
 

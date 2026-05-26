@@ -110,15 +110,39 @@ fun ResultsScreen(
         onBack = { navController.navigateTo(Screen.Home) },
         modifier = modifier.testTag("results_screen")
     ) { paddingValues ->
+        var devToolsExpanded by remember { mutableStateOf(false) }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            ResultsActionsRow(
+                canShowDeveloperTools = BuildCapabilities.isDeveloperBuild && args.executionId.isNotEmpty(),
+                devToolsExpanded = devToolsExpanded,
+                onBack = { navController.navigateTo(Screen.Home) },
+                onToggleDeveloperTools = { devToolsExpanded = !devToolsExpanded },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (BuildCapabilities.isDeveloperBuild && args.executionId.isNotEmpty() && devToolsExpanded) {
+                    com.example.ui.features.developer.components.ExpandableDeveloperSection(
+                        executionId = args.executionId,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
             // 1. Potential Concerns Card
             NutriCard(
                 modifier = Modifier.fillMaxWidth()
@@ -334,8 +358,6 @@ fun ResultsScreen(
                 }
             }
 
-            var devToolsExpanded by remember { mutableStateOf(false) }
-
             // Bottom Actions Area
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -345,25 +367,47 @@ fun ResultsScreen(
                 NutriSecondaryButton(
                     text = "Back",
                     onClick = { navController.navigateTo(Screen.Home) },
-                    modifier = Modifier.weight(1f).testTag("results_back_button")
+                    modifier = Modifier.weight(1f)
                 )
 
                 if (BuildCapabilities.isDeveloperBuild && args.executionId.isNotEmpty()) {
                     NutriPrimaryButton(
                         text = if (devToolsExpanded) "Hide Dev Tools" else "Developer Tools",
                         onClick = { devToolsExpanded = !devToolsExpanded },
-                        modifier = Modifier.weight(1f).testTag("developer_tools_expand")
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
-
-            if (BuildCapabilities.isDeveloperBuild && args.executionId.isNotEmpty() && devToolsExpanded) {
-                println("ResultsScreen: composing ExpandableDeveloperSection with executionId = '${args.executionId}'")
-                com.example.ui.features.developer.components.ExpandableDeveloperSection(
-                    executionId = args.executionId,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
+        }
+    }
+}
+
+@Composable
+private fun ResultsActionsRow(
+    canShowDeveloperTools: Boolean,
+    devToolsExpanded: Boolean,
+    onBack: () -> Unit,
+    onToggleDeveloperTools: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(NutriSpacing.md),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        NutriSecondaryButton(
+            text = "Back",
+            onClick = onBack,
+            modifier = Modifier.weight(1f).testTag("results_back_button")
+        )
+
+        if (canShowDeveloperTools) {
+            NutriPrimaryButton(
+                text = if (devToolsExpanded) "Hide Dev Tools" else "Developer Tools",
+                onClick = onToggleDeveloperTools,
+                modifier = Modifier.weight(1f).testTag("developer_tools_expand")
+            )
         }
     }
 }

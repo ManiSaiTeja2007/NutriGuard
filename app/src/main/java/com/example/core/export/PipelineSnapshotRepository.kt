@@ -4,10 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import java.io.File
 import java.io.FileOutputStream
-import java.util.concurrent.atomic.AtomicReference
-
 import java.util.Collections
-import java.util.UUID
 
 object PipelineSnapshotRepository {
 
@@ -28,14 +25,7 @@ object PipelineSnapshotRepository {
     }
 
     fun get(executionId: String): PipelineSnapshot? {
-        println("PipelineSnapshotRepository: get executionId = '$executionId'")
-        println("PipelineSnapshotRepository: history size = ${history.size}")
-        history.forEach {
-            println("PipelineSnapshotRepository: item id = '${it.executionId}'")
-        }
-        val found = history.find { it.executionId == executionId }
-        println("PipelineSnapshotRepository: found = $found")
-        return found
+        return history.find { it.executionId == executionId }
     }
 
     fun getHistory(): List<PipelineSnapshot> {

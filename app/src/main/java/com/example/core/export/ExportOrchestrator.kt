@@ -1,11 +1,9 @@
 package com.example.core.export
 
 import android.content.Context
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.withContext
 
 sealed interface ExportState {
     object Idle : ExportState
@@ -23,7 +21,7 @@ object ExportOrchestrator {
         _state.value = ExportState.Idle
     }
 
-    suspend fun exportSession(context: Context, snapshot: PipelineSnapshot) = withContext(Dispatchers.IO) {
+    fun exportSession(context: Context, snapshot: PipelineSnapshot) {
         _state.value = ExportState.Exporting
         try {
             val writer = ExportFileWriter(context)
@@ -39,11 +37,11 @@ object ExportOrchestrator {
         }
     }
 
-    suspend fun exportReplay(context: Context, snapshot: PipelineSnapshot) = withContext(Dispatchers.IO) {
+    fun exportReplay(context: Context, snapshot: PipelineSnapshot) {
         exportSession(context, snapshot)
     }
 
-    suspend fun exportOverlay(context: Context, snapshot: PipelineSnapshot) = withContext(Dispatchers.IO) {
+    fun exportOverlay(context: Context, snapshot: PipelineSnapshot) {
         exportSession(context, snapshot)
     }
 }

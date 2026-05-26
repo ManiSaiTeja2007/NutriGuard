@@ -25,18 +25,15 @@ import com.example.core.export.ExportOrchestrator
 import com.example.core.export.ExportState
 import com.example.core.export.PipelineSnapshotRepository
 import com.example.ui.design.*
-import kotlinx.coroutines.launch
 
 @Composable
 fun ExpandableDeveloperSection(
     executionId: String,
     modifier: Modifier = Modifier
 ) {
-    println("ExpandableDeveloperSection: composed with executionId = '$executionId'")
     if (!BuildCapabilities.isDeveloperBuild) return
 
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val exportState by ExportOrchestrator.state.collectAsState()
 
     var showResultDialog by remember { mutableStateOf(false) }
@@ -102,9 +99,7 @@ fun ExpandableDeveloperSection(
                 NutriSecondaryButton(
                     text = "Export Session",
                     onClick = {
-                        scope.launch {
-                            ExportOrchestrator.exportSession(context, snapshot)
-                        }
+                        ExportOrchestrator.exportSession(context, snapshot)
                     },
                     modifier = Modifier.weight(1f).testTag("export_session_button"),
                     enabled = exportState !is ExportState.Exporting
@@ -113,9 +108,7 @@ fun ExpandableDeveloperSection(
                 NutriSecondaryButton(
                     text = "Export Replay",
                     onClick = {
-                        scope.launch {
-                            ExportOrchestrator.exportReplay(context, snapshot)
-                        }
+                        ExportOrchestrator.exportReplay(context, snapshot)
                     },
                     modifier = Modifier.weight(1f).testTag("export_replay_button"),
                     enabled = exportState !is ExportState.Exporting
@@ -124,9 +117,7 @@ fun ExpandableDeveloperSection(
                 NutriSecondaryButton(
                     text = "Export Overlay",
                     onClick = {
-                        scope.launch {
-                            ExportOrchestrator.exportOverlay(context, snapshot)
-                        }
+                        ExportOrchestrator.exportOverlay(context, snapshot)
                     },
                     modifier = Modifier.weight(1f).testTag("export_overlay_button"),
                     enabled = exportState !is ExportState.Exporting
