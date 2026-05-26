@@ -1,0 +1,61 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "canonicalName": "monosodium glutamate",
+      "aliases": ["msg", "mono sodium glutamate", "monosodum glutamate", "sodium glutamate"],
+      "category": "FLAVOUR_ENHANCER",
+      "additiveCode": "E621",
+      "tags": ["additive", "flavor_enhancer", "ultra_processed"]
+    },
+    {
+      "canonicalName": "citric acid",
+      "aliases": ["citnc acid", "citricacid", "acid citric"],
+      "category": "ACIDITY_REGULATOR",
+      "additiveCode": "E330",
+      "tags": ["additive", "acidity_regulator", "preservative"]
+    },
+    {
+      "canonicalName": "microcrystalline cellulose",
+      "aliases": ["cellulose", "microcrystallinecellulose", "e460i", "e460"],
+      "category": "STABILIZER",
+      "additiveCode": "E460(i)",
+      "tags": ["additive", "stabilizer", "emulsifier", "ultra_processed"]
+    },
+    {
+      "canonicalName": "soy lecithin",
+      "aliases": ["lecithine", "lecithin", "sojalecithin"],
+      "category": "EMULSIFIER",
+      "additiveCode": "E322",
+      "tags": ["additive", "emulsifier", "allergen"]
+    },
+    {
+      "canonicalName": "ascorbic acid",
+      "aliases": ["vitamin c", "ascorbicacid"],
+      "category": "PRESERVATIVE",
+      "additiveCode": "E300",
+      "tags": ["additive", "preservative", "antioxidant"]
+    },
+    {
+      "canonicalName": "sucrose",
+      "aliases": ["sugar", "cane sugar", "beet sugar", "raw sugar", "brown sugar", "invert sugar"],
+      "category": "SWEETENER",
+      "additiveCode": null,
+      "tags": ["sweetener", "high_sugar"]
+    },
+    {
+      "canonicalName": "high fructose corn syrup",
+      "aliases": ["hfcs", "corn syrup", "corn syrup solids"],
+      "category": "SWEETENER",
+      "additiveCode": null,
+      "tags": ["sweetener", "high_sugar", "ultra_processed"]
+    },
+    {
+      "canonicalName": "palm oil",
+      "aliases": [],
+      "category": "OIL",
+      "additiveCode": null,
+      "tags": ["oil", "saturated_fat", "ultra_processed"]
+    }
+  ]
+}

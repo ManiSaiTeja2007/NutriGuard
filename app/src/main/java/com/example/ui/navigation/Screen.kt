@@ -19,4 +19,5 @@ sealed class Screen(val route: String) {
     object DeveloperTools : Screen("developer_tools")
     data class ReplayViewer(val replayId: String) : Screen("replay_viewer")
     object BenchmarkRunner : Screen("benchmark_runner")
+    object DeveloperExport : Screen("developer_export")
 }

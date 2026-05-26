@@ -4,10 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.example.core.benchmark.BenchmarkRunner
 import com.example.ui.navigation.NavController
 import com.example.ui.navigation.Screen
+import com.example.ui.design.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -36,23 +34,9 @@ fun BenchmarkRunnerScreen(
     var benchmarkProgress by remember { mutableStateOf(0f) }
     var benchmarkReport by remember { mutableStateOf<BenchmarkReport?>(null) }
 
-
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Benchmark Suite", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(imageVector = Icons.Default.Menu, contentDescription = "Open Drawer")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            )
-        },
+    NutriScreenScaffold(
+        title = "Benchmark Suite",
+        onOpenDrawer = onOpenDrawer,
         modifier = modifier
     ) { paddingValues ->
         Column(
@@ -61,8 +45,8 @@ fun BenchmarkRunnerScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(NutriSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(NutriSpacing.md)
         ) {
             Text(
                 text = "Offline Ingestion Benchmark",
@@ -77,20 +61,17 @@ fun BenchmarkRunnerScreen(
             )
 
             if (benchmarkRunning) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                NutriCard(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(NutriSpacing.sm)
                     ) {
                         Text("Running OCR & Ingestion Pipeline...", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                         LinearProgressIndicator(
-                            progress = benchmarkProgress,
+                            progress = { benchmarkProgress },
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.fillMaxWidth().height(8.dp)
                         )
@@ -98,7 +79,8 @@ fun BenchmarkRunnerScreen(
                     }
                 }
             } else {
-                Button(
+                NutriPrimaryButton(
+                    text = "Execute Local Ingestion Benchmark",
                     onClick = {
                         benchmarkRunning = true
                         benchmarkProgress = 0f
@@ -110,23 +92,14 @@ fun BenchmarkRunnerScreen(
                             benchmarkRunning = false
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text("Execute Local Ingestion Benchmark")
-                }
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             val report = benchmarkReport
             if (report != null) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                NutriCard(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
                         modifier = Modifier.padding(18.dp),
@@ -147,16 +120,11 @@ fun BenchmarkRunnerScreen(
                 }
             }
             
-            Button(
+            NutriSecondaryButton(
+                text = "Return to Dashboard",
                 onClick = { navController.navigateTo(Screen.Home) },
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary
-                )
-            ) {
-                Text("Return to Dashboard")
-            }
+                modifier = Modifier.fillMaxWidth().padding(top = NutriSpacing.md)
+            )
         }
     }
 }

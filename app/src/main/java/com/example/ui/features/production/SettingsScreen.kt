@@ -3,20 +3,17 @@ package com.example.ui.features.production
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import com.example.core.config.FeatureFlags
 import com.example.data.AppSettings
 import com.example.platform.settings.OcrMode
 import com.example.platform.settings.ThemeMode
+import com.example.ui.design.*
 import com.example.ui.navigation.NavController
 import com.example.ui.navigation.Screen
 
@@ -27,316 +24,226 @@ fun SettingsScreen(
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("System Settings", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(imageVector = Icons.Default.Menu, contentDescription = "Open Drawer")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            )
-        },
+    var showThemeMenu by remember { mutableStateOf(false) }
+    var showOcrMenu by remember { mutableStateOf(false) }
+
+    // Read state from AppSettings
+    var adaptiveOcr by remember { mutableStateOf(AppSettings.enableAdaptiveOcr) }
+    var largerText by remember { mutableStateOf(AppSettings.largerTextEnabled) }
+    var highContrast by remember { mutableStateOf(AppSettings.highContrastEnabled) }
+    var themePreference by remember { mutableStateOf(AppSettings.themePreference) }
+    var ocrModePreference by remember { mutableStateOf(AppSettings.ocrMode) }
+
+    // Developer settings states
+    var replaySaving by remember { mutableStateOf(AppSettings.replaySaving) }
+    var showOverlays by remember { mutableStateOf(AppSettings.showOverlays) }
+    var ocrDiagnostics by remember { mutableStateOf(AppSettings.ocrDiagnostics) }
+    var preprocessingPreviews by remember { mutableStateOf(AppSettings.preprocessingPreviews) }
+
+    NutriScreenScaffold(
+        title = "System Settings",
+        onOpenDrawer = onOpenDrawer,
         modifier = modifier
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. General Preferences
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(NutriSpacing.md),
+                verticalArrangement = Arrangement.spacedBy(NutriSpacing.md)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "General Preferences",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                // 1. General Preferences
+                NutriSettingsSection(title = "General Preferences") {
+                    NutriSettingsSelector(
+                        title = "App Theme Mode",
+                        subtitle = "Choose between Light, Dark, or System Default.",
+                        selectedValue = themePreference.name.lowercase().replaceFirstChar { it.uppercase() },
+                        onClick = { showThemeMenu = true }
+                    )
+                }
+
+                // 2. OCR Scanning Configuration
+                NutriSettingsSection(title = "OCR Configuration") {
+                    NutriSettingsToggle(
+                        title = "Adaptive OCR Engine",
+                        subtitle = "Dynamically adjusts image resolution, tiles, contrast, and timeout parameters.",
+                        checked = adaptiveOcr,
+                        onCheckedChange = {
+                            AppSettings.setAdaptiveOcrEnabled(it)
+                            adaptiveOcr = it
+                        }
                     )
 
-                    // Theme selector row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                            Text(
-                                text = "App Theme Mode",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Choose between Light, Dark, or System Default.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                    NutriSettingsSelector(
+                        title = "OCR Execution Target",
+                        subtitle = "Accuracy: thorough parsing; Performance: faster, lighter scan.",
+                        selectedValue = ocrModePreference.name.lowercase().replaceFirstChar { it.uppercase() },
+                        onClick = { showOcrMenu = true }
+                    )
+                }
 
-                        var showThemeMenu by remember { mutableStateOf(false) }
-                        Box {
-                            Button(onClick = { showThemeMenu = true }) {
-                                Text(AppSettings.themePreference.name.lowercase().replaceFirstChar { it.uppercase() })
+                // 3. Accessibility Options
+                NutriSettingsSection(title = "Accessibility Options") {
+                    NutriSettingsToggle(
+                        title = "Larger Fonts",
+                        subtitle = "Increases all text labels and descriptions by 15% across screens.",
+                        checked = largerText,
+                        onCheckedChange = {
+                            AppSettings.setLargerText(it)
+                            largerText = it
+                        }
+                    )
+
+                    NutriSettingsToggle(
+                        title = "High Contrast Mode",
+                        subtitle = "Enforces pure black and white surfaces for optimized readability.",
+                        checked = highContrast,
+                        onCheckedChange = {
+                            AppSettings.setHighContrast(it)
+                            highContrast = it
+                        }
+                    )
+                }
+
+                // 4. Developer Tools (Only shown in dev/internal builds via FeatureFlags)
+                if (FeatureFlags.enableDiagnostics) {
+                    NutriSettingsSection(title = "Developer Diagnostics") {
+                        NutriSettingsToggle(
+                            title = "Save Failed Scans to Cache",
+                            subtitle = "Serializes failed extractions locally as offline-inspectable replay JSONs.",
+                            checked = replaySaving,
+                            onCheckedChange = {
+                                AppSettings.setReplaySavingEnabled(it)
+                                replaySaving = it
                             }
-                            DropdownMenu(
-                                expanded = showThemeMenu,
-                                onDismissRequest = { showThemeMenu = false }
-                            ) {
+                        )
+
+                        NutriSettingsToggle(
+                            title = "Show Live OCR Overlays",
+                            subtitle = "Draws detected ingredient bounding boxes directly over the preview viewport.",
+                            checked = showOverlays,
+                            onCheckedChange = {
+                                AppSettings.setShowOverlaysEnabled(it)
+                                showOverlays = it
+                            }
+                        )
+
+                        NutriSettingsToggle(
+                            title = "Diagnostics Text Overlays",
+                            subtitle = "Displays live frame stats (contrast/blur/size) in the camera UI.",
+                            checked = ocrDiagnostics,
+                            onCheckedChange = {
+                                AppSettings.setOcrDiagnosticsEnabled(it)
+                                ocrDiagnostics = it
+                            }
+                        )
+
+                        NutriSettingsToggle(
+                            title = "Show Preprocessed Grayscale Preview",
+                            subtitle = "Renders the adaptive thresh/contrast-adjusted bitmap for tuning.",
+                            checked = preprocessingPreviews,
+                            onCheckedChange = {
+                                AppSettings.setPreprocessingPreviewsEnabled(it)
+                                preprocessingPreviews = it
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(NutriSpacing.sm))
+
+                NutriPrimaryButton(
+                    text = "Return to Dashboard",
+                    onClick = { navController.clearBackStackAndNavigate(Screen.Home) },
+                    icon = NutriIcons.Home,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // Dropdown Menus overlaying the Box container
+            if (showThemeMenu) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f))
+                ) {
+                    AlertDialog(
+                        onDismissRequest = { showThemeMenu = false },
+                        title = { Text("App Theme Mode", fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(NutriSpacing.sm)) {
                                 ThemeMode.values().forEach { mode ->
-                                    DropdownMenuItem(
-                                        text = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                                    TextButton(
                                         onClick = {
                                             AppSettings.setThemeMode(mode)
+                                            themePreference = mode
                                             showThemeMenu = false
-                                        }
-                                    )
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = mode.name.lowercase().replaceFirstChar { it.uppercase() },
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = if (themePreference == mode) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    }
                                 }
                             }
-                        }
-                    }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showThemeMenu = false }) {
+                                Text("Cancel")
+                            }
+                        },
+                        shape = NutriShapes.dialog
+                    )
                 }
             }
 
-            // 2. OCR Scanning Configuration
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            if (showOcrMenu) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f))
                 ) {
-                    Text(
-                        text = "OCR Configuration",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    SettingToggle(
-                        label = "Adaptive OCR Engine",
-                        description = "Dynamically adjusts image resolution, tiles, contrast, and timeout parameters.",
-                        checked = AppSettings.enableAdaptiveOcr,
-                        onCheckedChange = { AppSettings.setAdaptiveOcrEnabled(it) }
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-
-                    // OCR Performance Mode
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                            Text(
-                                text = "OCR Execution Target",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Accuracy: thorough parsing; Performance: faster, lighter scan.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        var showOcrMenu by remember { mutableStateOf(false) }
-                        Box {
-                            Button(onClick = { showOcrMenu = true }) {
-                                Text(AppSettings.ocrMode.name.lowercase().replaceFirstChar { it.uppercase() })
-                            }
-                            DropdownMenu(
-                                expanded = showOcrMenu,
-                                onDismissRequest = { showOcrMenu = false }
-                            ) {
+                    AlertDialog(
+                        onDismissRequest = { showOcrMenu = false },
+                        title = { Text("OCR Execution Target", fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(NutriSpacing.sm)) {
                                 OcrMode.values().forEach { mode ->
-                                    DropdownMenuItem(
-                                        text = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                                    TextButton(
                                         onClick = {
                                             AppSettings.setOcrPerformanceMode(mode)
+                                            ocrModePreference = mode
                                             showOcrMenu = false
-                                        }
-                                    )
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = mode.name.lowercase().replaceFirstChar { it.uppercase() },
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = if (ocrModePreference == mode) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    }
                                 }
                             }
-                        }
-                    }
-                }
-            }
-
-            // 3. Accessibility Options
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Accessibility Options",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    SettingToggle(
-                        label = "Larger Fonts",
-                        description = "Increases all text labels and descriptions by 15% across screens.",
-                        checked = AppSettings.largerTextEnabled,
-                        onCheckedChange = { AppSettings.setLargerText(it) }
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-
-                    SettingToggle(
-                        label = "High Contrast Mode",
-                        description = "Enforces pure black and white surfaces for optimized readability.",
-                        checked = AppSettings.highContrastEnabled,
-                        onCheckedChange = { AppSettings.setHighContrast(it) }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showOcrMenu = false }) {
+                                Text("Cancel")
+                            }
+                        },
+                        shape = NutriShapes.dialog
                     )
                 }
-            }
-
-            // 4. Developer Tools (Only shown in dev/internal builds)
-            if (FeatureFlags.enableDiagnostics) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "Developer Diagnostics",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-
-                        SettingToggle(
-                            label = "Save Failed Scans to Cache",
-                            description = "Serializes failed extractions locally as offline-inspectable replay JSONs.",
-                            checked = AppSettings.replaySaving,
-                            onCheckedChange = { AppSettings.setReplaySavingEnabled(it) }
-                        )
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-
-                        SettingToggle(
-                            label = "Show Live OCR Overlays",
-                            description = "Draws detected ingredient bounding boxes directly over the preview viewport.",
-                            checked = AppSettings.showOverlays,
-                            onCheckedChange = { AppSettings.setShowOverlaysEnabled(it) }
-                        )
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-
-                        SettingToggle(
-                            label = "Diagnostics Text Overlays",
-                            description = "Displays live frame stats (contrast/blur/size) in the camera UI.",
-                            checked = AppSettings.ocrDiagnostics,
-                            onCheckedChange = { AppSettings.setOcrDiagnosticsEnabled(it) }
-                        )
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-
-                        SettingToggle(
-                            label = "Show Preprocessed Grayscale Preview",
-                            description = "Renders the adaptive thresh/contrast-adjusted bitmap for tuning.",
-                            checked = AppSettings.preprocessingPreviews,
-                            onCheckedChange = { AppSettings.setPreprocessingPreviewsEnabled(it) }
-                        )
-                    }
-                }
-            }
-
-            Button(
-                onClick = { navController.clearBackStackAndNavigate(Screen.Home) },
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            ) {
-                Text("Return to Dashboard")
             }
         }
-    }
-}
-
-@Composable
-private fun SettingToggle(
-    label: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                checkedTrackColor = MaterialTheme.colorScheme.primary
-            )
-        )
     }
 }

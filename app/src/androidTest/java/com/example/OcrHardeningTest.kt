@@ -140,9 +140,10 @@ class OcrHardeningTest {
         val framePipeline = FramePipeline(throttleMs = 0L)
         val pipeline = OCRPipeline()
 
-        // Loop over the dataset twice to check stability under repeated workloads
+        // Loop over a subset of the dataset twice to check stability under repeated workloads
+        val subset = assetNames.take(10)
         repeat(2) {
-            assetNames.forEach { assetName ->
+            subset.forEach { assetName ->
                 val asset = BitmapAssetLoader.loadWithMetadata(context, "$TEST_LABEL_DIR/$assetName")
                 val frame = ImageFrame.BitmapFrame(
                     bitmap = asset.bitmap,

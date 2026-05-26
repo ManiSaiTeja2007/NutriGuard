@@ -40,6 +40,8 @@ class OCRPipeline(
         TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 ) : PipelineStage<Pair<ImageFrame, FrameAnalysisResult>, OcrResult>, Closeable {
 
+    var context: android.content.Context? = null
+
     override suspend fun invoke(input: Pair<ImageFrame, FrameAnalysisResult>): OcrResult {
         val (frame, frameResult) = input
 
@@ -55,6 +57,24 @@ class OCRPipeline(
                 frame = frameResult,
                 segmentsProcessed = 0,
                 skippedReason = "Image is below minimum size of 8x8",
+                failures = listOf(FailureType.INVALID_IMAGE_SIZE_FAILURE)
+            )
+            OcrInstrumentation.logSkipped(skippedResult)
+            return skippedResult
+        }
+
+        if (frameResult.width < 32 && frameResult.height < 32) {
+            val skippedResult = OcrResult(
+                text = "",
+                processingLatencyMs = 0L,
+                averageConfidence = null,
+                textBlockCount = 0,
+                lineCount = 0,
+                elementCount = 0,
+                source = frameResult.source,
+                frame = frameResult,
+                segmentsProcessed = 0,
+                skippedReason = "Image is below ML Kit minimum size of 32x32",
                 failures = listOf(FailureType.INVALID_IMAGE_SIZE_FAILURE)
             )
             OcrInstrumentation.logSkipped(skippedResult)
@@ -193,6 +213,10 @@ class OCRPipeline(
                     pipelineFailures.add(FailureType.OCR_PIPELINE_ROUTING_FAILURE)
                 }
             } finally {
+                val toSave = preprocessedBitmap ?: normalizedBitmap
+                if (context != null && toSave != null) {
+                    com.example.core.export.PipelineSnapshotRepository.saveTempBitmap(context!!, toSave, "prep")
+                }
                 preprocessedBitmap?.recycle()
             }
 

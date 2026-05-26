@@ -5,6 +5,7 @@ import android.os.SystemClock
 import com.example.core.frame.FrameAnalysisResult
 import com.example.core.imaging.ImageFrame
 import com.example.core.imaging.ImageSource
+import com.example.core.intelligence.IngredientInterpreter
 import com.example.core.intelligence.correction.OcrMetadata
 import com.example.core.metrics.MetricsCollector
 import com.example.core.replay.ReplayCollector
@@ -19,11 +20,17 @@ class PipelineRunner(
         bitmap: Bitmap,
         rotationDegrees: Int = 0,
         source: ImageSource = ImageSource.CAMERA_X,
-        config: PipelineConfig = PipelineConfig()
+        config: PipelineConfig = PipelineConfig(),
+        context: android.content.Context? = null
     ): PipelineResult {
         val executionId = PipelineExecutionId.generate()
         val metricsCollector = MetricsCollector()
         val replayCollector = ReplayCollector()
+
+        if (context != null) {
+            com.example.core.export.PipelineSnapshotRepository.saveTempBitmap(context, bitmap, "raw")
+            ocrPipeline.context = context
+        }
 
         val totalStart = SystemClock.elapsedRealtime()
 
@@ -98,15 +105,13 @@ class PipelineRunner(
             )
         }
 
-        val totalLatency = SystemClock.elapsedRealtime() - totalStart
-        metricsCollector.recordLatency("total", totalLatency)
-
-        val runtime = Runtime.getRuntime()
-        val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1024L
-        metricsCollector.setMemoryUsage(usedMemory)
-
-        // 3. Map to Immutable result structures
+        // 3. Map to Immutable result structures & Run interpretation stage
         val semanticIngredients = semanticResult.correction.output.map { result ->
+            val interpretation = IngredientInterpreter.interpret(
+                canonicalName = result.canonical,
+                confidence = result.confidence,
+                originalToken = result.originalToken
+            )
             SemanticIngredient(
                 canonical = result.canonical,
                 originalToken = result.originalToken,
@@ -116,9 +121,41 @@ class PipelineRunner(
                 phraseWindow = result.phraseWindow,
                 ontologyCategory = result.ontologyCategory,
                 disambiguationRule = result.disambiguationRule,
-                groupPath = result.groupPath
+                groupPath = result.groupPath,
+                interpretedCategory = interpretation.category.name,
+                additiveCode = interpretation.additiveCode,
+                explanation = interpretation.explanation,
+                warnings = interpretation.warnings
             )
         }
+
+
+        val interpretStart = SystemClock.elapsedRealtime()
+        val interpretedIngredients = semanticIngredients.map { ing ->
+            IngredientInterpreter.interpret(
+                canonicalName = ing.canonical,
+                confidence = ing.confidence,
+                originalToken = ing.originalToken
+            )
+        }
+        val interpretLatency = SystemClock.elapsedRealtime() - interpretStart
+        metricsCollector.recordLatency("interpretation", interpretLatency)
+
+        if (config.enableReplay) {
+            replayCollector.addStage(
+                stageName = "interpretation",
+                input = semanticIngredients.map { "${it.canonical} (${it.confidence})" }.joinToString(", "),
+                output = interpretedIngredients.map { "${it.canonicalName} -> [Cat: ${it.category}, Code: ${it.additiveCode}]" }.joinToString(", "),
+                latencyMs = interpretLatency
+            )
+        }
+
+        val totalLatency = SystemClock.elapsedRealtime() - totalStart
+        metricsCollector.recordLatency("total", totalLatency)
+
+        val runtime = Runtime.getRuntime()
+        val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1024L
+        metricsCollector.setMemoryUsage(usedMemory)
 
         val pipelineFailures = mutableListOf<PipelineFailure>()
         ocrResult.failures.forEach {
@@ -142,11 +179,12 @@ class PipelineRunner(
             }
         }
 
-        return PipelineResult(
+        val finalResult = PipelineResult(
             executionId = executionId,
             ocrBlocks = ocrResult.ocrBlocks,
             ocrLines = ocrResult.reconstructedLines,
             semanticIngredients = semanticIngredients,
+            interpretedIngredients = interpretedIngredients,
             replayTrace = replayCollector.getStages(),
             metrics = PipelineMetrics(
                 ocrLatencyMs = ocrLatency,
@@ -168,5 +206,19 @@ class PipelineRunner(
             ),
             failures = pipelineFailures
         )
+
+        if (context != null) {
+            val rawPath = java.io.File(context.cacheDir, "temp_snapshot_raw.png").let { if (it.exists()) it.absolutePath else null }
+            val prepPath = java.io.File(context.cacheDir, "temp_snapshot_prep.png").let { if (it.exists()) it.absolutePath else null }
+            val snapshot = com.example.core.export.PipelineSnapshot(
+                executionId = executionId.toString(),
+                rawImagePath = rawPath,
+                preprocessedImagePath = prepPath,
+                result = finalResult
+            )
+            com.example.core.export.PipelineSnapshotRepository.update(snapshot)
+        }
+
+        return finalResult
     }
 }

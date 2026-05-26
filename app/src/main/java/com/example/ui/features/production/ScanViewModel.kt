@@ -14,6 +14,7 @@ import com.example.core.ingredient.*
 import com.example.core.intelligence.vocabulary.IngredientVocabulary
 import com.example.core.intelligence.correction.FailureType
 import com.example.core.intelligence.correction.OcrMetadata
+import com.example.core.intelligence.IngredientInterpreter
 import com.example.core.replay.ReplayStorageHelper
 import com.example.data.AppSettings
 import com.example.core.config.FeatureFlags
@@ -222,6 +223,19 @@ class ScanViewModel : ViewModel() {
                     put("ontologyCategory", result.ontologyCategory ?: "")
                     put("disambiguationRule", result.disambiguationRule ?: "")
                     put("groupPath", result.groupPath)
+
+                    val interpretation = IngredientInterpreter.interpret(
+                        canonicalName = result.canonical,
+                        confidence = result.confidence,
+                        originalToken = result.originalToken
+                    )
+                    put("interpretedCategory", interpretation.category.name)
+                    put("additiveCode", interpretation.additiveCode ?: "")
+                    put("explanation", interpretation.explanation ?: "")
+
+                    val warningsArr = JSONArray()
+                    interpretation.warnings.forEach { warningsArr.put(it) }
+                    put("warnings", warningsArr)
 
                     val stepsArr = JSONArray()
                     result.debugSteps.forEach { stepsArr.put(it) }

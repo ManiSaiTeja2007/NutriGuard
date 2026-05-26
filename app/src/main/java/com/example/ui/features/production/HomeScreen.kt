@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,10 +13,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.platform.health.AppHealthMonitor
+import com.example.ui.design.*
 import com.example.ui.navigation.NavController
 import com.example.ui.navigation.Screen
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
@@ -27,21 +25,9 @@ fun HomeScreen(
 ) {
     AppHealthMonitor.trackScreenTransition("Home")
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("NutriGuard", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            )
-        },
+    NutriScreenScaffold(
+        title = "NutriGuard",
+        onOpenDrawer = onOpenDrawer,
         modifier = modifier
     ) { paddingValues ->
         Column(
@@ -50,17 +36,16 @@ fun HomeScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState())
                 .padding(paddingValues)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+                .padding(NutriSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(NutriSpacing.md),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Card(
+            NutriCard(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                shape = RoundedCornerShape(16.dp)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.padding(NutriSpacing.lg),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
@@ -70,7 +55,7 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(NutriSpacing.sm))
                     Text(
                         text = "Scan product labels to instantly identify ingredients, additives, and allergen warnings fully offline.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -92,17 +77,14 @@ fun HomeScreen(
             WorkflowStep(number = "2", title = "View Ingredients", desc = "Read the reconstructed, clean list of ingredients.")
             WorkflowStep(number = "3", title = "Understand Additives", desc = "See full definitions for food coloring and chemical preservatives.")
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(NutriSpacing.md))
 
-            Button(
+            NutriPrimaryButton(
+                text = "Scan Product Label",
                 onClick = { navController.navigateTo(Screen.Scan) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Scan Product Label", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
+                icon = NutriIcons.Search,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -116,8 +98,8 @@ private fun WorkflowStep(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-            .padding(16.dp),
+            .background(MaterialTheme.colorScheme.surface, NutriShapes.card)
+            .padding(NutriSpacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
@@ -134,7 +116,7 @@ private fun WorkflowStep(
                 )
             }
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(NutriSpacing.md))
         Column {
             Text(
                 text = title,

@@ -6,6 +6,9 @@ import android.os.SystemClock
 import com.example.core.imaging.ImageSource
 import com.example.core.intelligence.vocabulary.IngredientVocabulary
 import com.example.core.intelligence.fuzzy.Levenshtein
+import com.example.core.ontology.OntologyRepository
+import com.example.core.ontology.IngredientCategory
+import com.example.core.additives.ENumberRepository
 import com.example.core.pipeline.*
 import org.json.JSONObject
 import java.io.File
@@ -37,7 +40,13 @@ data class SingleRecordResult(
     val latencyTotalMs: Long,
     val latencyOcrMs: Long,
     val latencySemanticMs: Long,
-    val ingredientsCount: Int
+    val ingredientsCount: Int,
+    // Stage 10 fields:
+    val additiveAccuracy: Float = 1.0f,
+    val ontologyMatchAccuracy: Float = 1.0f,
+    val falseInterpretationRate: Float = 0.0f,
+    val unknownPreservationRate: Float = 1.0f,
+    val confidenceCalibrationAccuracy: Float = 1.0f
 )
 
 data class BenchmarkSummary(
@@ -57,7 +66,13 @@ data class BenchmarkSummary(
     val averageCanonicalAccuracy: Float,
     val averageOcrLatencyMs: Long,
     val averageSemanticLatencyMs: Long,
-    val averageTotalLatencyMs: Long
+    val averageTotalLatencyMs: Long,
+    // Stage 10 fields:
+    val averageAdditiveAccuracy: Float = 1.0f,
+    val averageOntologyMatchAccuracy: Float = 1.0f,
+    val averageFalseInterpretationRate: Float = 0.0f,
+    val averageUnknownPreservationRate: Float = 1.0f,
+    val averageConfidenceCalibrationAccuracy: Float = 1.0f
 )
 
 data class BenchmarkGroundTruth(
@@ -166,6 +181,48 @@ class BenchmarkRunner(
                 val canonicalAccuracy = if (gt.expectedCanonical.map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet() ==
                     actualCanonical.map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()) 1.0f else 0.0f
 
+                // 4. Calculate Stage 10 Semantic Safety metrics
+                val expectedAdditives = gt.expectedCanonical.filter { it.startsWith("e", ignoreCase = true) || ENumberRepository.find(it) != null }.map { it.lowercase().trim() }.toSet()
+                val actualAdditives = result.interpretedIngredients.filter { it.additiveCode != null }.map { it.canonicalName.lowercase().trim() }.toSet()
+                val additiveAcc = if (expectedAdditives.isEmpty() && actualAdditives.isEmpty()) 1.0f else {
+                    val intersection = expectedAdditives.intersect(actualAdditives).size
+                    intersection.toFloat() / maxOf(1, expectedAdditives.size)
+                }
+
+                val expectedCategories = gt.expectedCanonical.mapNotNull { 
+                    OntologyRepository.find(it)?.category ?: ENumberRepository.find(it)?.category 
+                }.map { it.name }.toSet()
+                val actualCategories = result.interpretedIngredients.map { it.category.name }.toSet()
+                val ontologyMatchAcc = if (expectedCategories.isEmpty() && actualCategories.isEmpty()) 1.0f else {
+                    val intersection = expectedCategories.intersect(actualCategories).size
+                    intersection.toFloat() / maxOf(1, expectedCategories.size)
+                }
+
+                val falseInterpretations = actualCanonical.filter { it !in gt.expectedCanonical && it.lowercase().trim() != "unknown" }
+                val falseInterpretationRate = if (actualCanonical.isEmpty()) 0.0f else {
+                    falseInterpretations.size.toFloat() / actualCanonical.size
+                }
+
+                val expectedUnknownsCount = expectedIngredients.count { 
+                    OntologyRepository.find(it) == null && ENumberRepository.find(it) == null 
+                }
+                val actualUnknownsPreserved = result.interpretedIngredients.count { 
+                    it.category == IngredientCategory.UNKNOWN 
+                }
+                val unknownPreservationRate = if (expectedUnknownsCount == 0) 1.0f else {
+                    actualUnknownsPreserved.toFloat() / expectedUnknownsCount
+                }
+
+                val highConfidenceCorrect = result.interpretedIngredients.count { 
+                    it.confidenceBand == com.example.core.confidence.ConfidenceBand.HIGH && it.canonicalName in gt.expectedCanonical 
+                }
+                val totalHighConfidence = result.interpretedIngredients.count { 
+                    it.confidenceBand == com.example.core.confidence.ConfidenceBand.HIGH 
+                }
+                val confidenceCalibrationAcc = if (totalHighConfidence == 0) 1.0f else {
+                    highConfidenceCorrect.toFloat() / totalHighConfidence
+                }
+
                 records.add(
                     SingleRecordResult(
                         imagePath = imagePathRel,
@@ -187,7 +244,12 @@ class BenchmarkRunner(
                                 result.metrics.groupingLatencyMs +
                                 result.metrics.phraseCorrectionLatencyMs +
                                 result.metrics.correctionLatencyMs,
-                        ingredientsCount = result.semanticIngredients.size
+                        ingredientsCount = result.semanticIngredients.size,
+                        additiveAccuracy = additiveAcc,
+                        ontologyMatchAccuracy = ontologyMatchAcc,
+                        falseInterpretationRate = falseInterpretationRate,
+                        unknownPreservationRate = unknownPreservationRate,
+                        confidenceCalibrationAccuracy = confidenceCalibrationAcc
                     )
                 )
             } catch (e: Exception) {
@@ -217,7 +279,12 @@ class BenchmarkRunner(
             averageCanonicalAccuracy = records.map { it.canonicalAccuracy }.average().toFloat(),
             averageOcrLatencyMs = records.map { it.latencyOcrMs }.average().toLong(),
             averageSemanticLatencyMs = records.map { it.latencySemanticMs }.average().toLong(),
-            averageTotalLatencyMs = records.map { it.latencyTotalMs }.average().toLong()
+            averageTotalLatencyMs = records.map { it.latencyTotalMs }.average().toLong(),
+            averageAdditiveAccuracy = records.map { it.additiveAccuracy }.average().toFloat(),
+            averageOntologyMatchAccuracy = records.map { it.ontologyMatchAccuracy }.average().toFloat(),
+            averageFalseInterpretationRate = records.map { it.falseInterpretationRate }.average().toFloat(),
+            averageUnknownPreservationRate = records.map { it.unknownPreservationRate }.average().toFloat(),
+            averageConfidenceCalibrationAccuracy = records.map { it.confidenceCalibrationAccuracy }.average().toFloat()
         )
 
         return Pair(summary, records)

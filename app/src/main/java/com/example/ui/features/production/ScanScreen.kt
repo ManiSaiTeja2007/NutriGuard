@@ -47,6 +47,7 @@ import com.example.ui.navigation.Screen
 import com.example.utils.LoadedBitmapAsset
 import com.example.utils.TestLabelAssetRepository
 import com.example.platform.health.AppHealthMonitor
+import com.example.ui.design.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,18 +62,9 @@ fun ScanScreen(
     AppHealthMonitor.trackScreenTransition("Scan")
     val uiState by viewModel.uiState.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Product Ingestion Scan", color = Color(0xFF163832), fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
-        },
+    NutriScreenScaffold(
+        title = "Product Ingestion Scan",
+        onOpenDrawer = onOpenDrawer,
         modifier = modifier
     ) { paddingValues ->
         Column(
@@ -225,19 +217,14 @@ private fun LiveCameraPanel(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Button(
+            NutriPrimaryButton(
+                text = "Ingest Scanned Text",
                 onClick = {
                     viewModel.ingestLiveCamera(context, navController)
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = ocrText.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF116A5B),
-                    disabledContainerColor = Color(0xFF2C4C46)
-                )
-            ) {
-                Text("Ingest Scanned Text", color = Color.White)
-            }
+                enabled = ocrText.isNotBlank()
+            )
         }
     }
 }
@@ -357,11 +344,10 @@ private fun TestImagesPanel(
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF5D6E6A)
             )
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+            NutriCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, Color(0xFFE8EFEC), RoundedCornerShape(8.dp))
+                    .border(1.dp, Color(0xFFE8EFEC), NutriShapes.button)
             ) {
                 Column(
                     modifier = Modifier.padding(12.dp),
@@ -555,7 +541,7 @@ private fun TestImagePreview(
             var zoomScale by remember { mutableStateOf(1f) }
             var panOffset by remember { mutableStateOf(Offset.Zero) }
 
-            val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+            val transformState = rememberTransformableState { _, zoomChange, panChange, _ ->
                 zoomScale = (zoomScale * zoomChange).coerceIn(1f, 5f)
                 panOffset += panChange
             }

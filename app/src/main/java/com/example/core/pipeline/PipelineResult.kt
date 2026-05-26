@@ -3,6 +3,7 @@ package com.example.core.pipeline
 import com.example.core.ocr.OCRBlock
 import com.example.core.ocr.OCRLine
 import com.example.core.intelligence.correction.FailureType
+import com.example.core.intelligence.InterpretedIngredient
 import com.example.core.replay.ReplayStageTrace
 import java.util.UUID
 
@@ -15,7 +16,11 @@ data class SemanticIngredient(
     val phraseWindow: List<String> = emptyList(),
     val ontologyCategory: String? = null,
     val disambiguationRule: String? = null,
-    val groupPath: String = "root"
+    val groupPath: String = "root",
+    val interpretedCategory: String? = null,
+    val additiveCode: String? = null,
+    val explanation: String? = null,
+    val warnings: List<String> = emptyList()
 )
 
 data class PipelineMetrics(
@@ -49,8 +54,10 @@ data class PipelineResult(
     val ocrBlocks: List<OCRBlock>,
     val ocrLines: List<OCRLine>,
     val semanticIngredients: List<SemanticIngredient>,
+    val interpretedIngredients: List<InterpretedIngredient> = emptyList(),
     val replayTrace: List<ReplayStageTrace> = emptyList(),
     val metrics: PipelineMetrics,
     val preprocessingProfile: PreprocessingProfile,
     val failures: List<PipelineFailure>
 )
+

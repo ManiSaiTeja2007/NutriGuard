@@ -36,7 +36,7 @@ import com.example.ui.features.developer.ReplayViewerScreen
 import com.example.ui.features.benchmark.BenchmarkRunnerScreen
 import com.example.ui.navigation.NavController
 import com.example.ui.navigation.Screen
-import com.example.ui.theme.NutriGuardTheme
+import com.example.ui.design.*
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
             val highContrast = AppSettings.highContrastEnabled
             val largerText = AppSettings.largerTextEnabled
 
-            NutriGuardTheme(
+            NutriTheme(
                 themeMode = themeMode,
                 highContrast = highContrast,
                 largerText = largerText
@@ -148,6 +148,13 @@ class MainActivity : ComponentActivity() {
                                     navController = navController,
                                     onOpenDrawer = { scope.launch { drawerState.open() } }
                                 )
+                                is Screen.DeveloperExport -> {
+                                    val devExportViewModel = remember { com.example.ui.features.developer.export.DeveloperExportViewModel() }
+                                    com.example.ui.features.developer.export.DeveloperExportScreen(
+                                        navController = navController,
+                                        viewModel = devExportViewModel
+                                    )
+                                }
                             }
                         }
                     }
@@ -165,61 +172,67 @@ private fun NavigationDrawerContent(
     Column(
         modifier = Modifier
             .fillMaxHeight()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(NutriSpacing.md),
+        verticalArrangement = Arrangement.spacedBy(NutriSpacing.sm)
     ) {
         Text(
             text = "NutriGuard Menu",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(NutriSpacing.md),
             color = MaterialTheme.colorScheme.primary
         )
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(NutriSpacing.sm))
 
         DrawerItem(
             label = "Home",
             selected = currentScreen is Screen.Home,
-            icon = Icons.Default.Home,
+            icon = NutriIcons.Home,
             onClick = { onNavigate(Screen.Home) }
         )
 
         DrawerItem(
             label = "Scan Product",
             selected = currentScreen is Screen.Scan,
-            icon = Icons.Default.Search,
+            icon = NutriIcons.Search,
             onClick = { onNavigate(Screen.Scan) }
         )
 
         DrawerItem(
             label = "Settings",
             selected = currentScreen is Screen.Settings,
-            icon = Icons.Default.Settings,
+            icon = NutriIcons.Settings,
             onClick = { onNavigate(Screen.Settings) }
         )
 
         DrawerItem(
             label = "About App",
             selected = currentScreen is Screen.About,
-            icon = Icons.Default.Info,
+            icon = NutriIcons.Info,
             onClick = { onNavigate(Screen.About) }
         )
 
-        if (FeatureFlags.enableDiagnostics) {
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+        if (com.example.core.config.BuildCapabilities.isDeveloperBuild) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = NutriSpacing.sm), color = MaterialTheme.colorScheme.outlineVariant)
             Text(
                 text = "Developer Diagnostics",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = NutriSpacing.md, vertical = NutriSpacing.xs),
                 color = MaterialTheme.colorScheme.secondary
             )
             DrawerItem(
                 label = "Dev Console",
                 selected = currentScreen is Screen.DeveloperTools,
-                icon = Icons.Default.Build,
+                icon = NutriIcons.Build,
                 onClick = { onNavigate(Screen.DeveloperTools) }
+            )
+            DrawerItem(
+                label = "Session Exporter",
+                selected = currentScreen is Screen.DeveloperExport,
+                icon = NutriIcons.Share,
+                onClick = { onNavigate(Screen.DeveloperExport) }
             )
         }
 
@@ -227,7 +240,7 @@ private fun NavigationDrawerContent(
             DrawerItem(
                 label = "Benchmark Run",
                 selected = currentScreen is Screen.BenchmarkRunner,
-                icon = Icons.Default.Star,
+                icon = NutriIcons.Star,
                 onClick = { onNavigate(Screen.BenchmarkRunner) }
             )
         }
@@ -251,7 +264,7 @@ private fun DrawerItem(
             selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
             selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer
         ),
-        modifier = Modifier.padding(horizontal = 12.dp)
+        modifier = Modifier.padding(horizontal = NutriSpacing.sm)
     )
 }
 
@@ -266,18 +279,16 @@ private fun FallbackRecoveryScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.errorContainer)
-            .padding(24.dp),
+            .padding(NutriSpacing.lg),
         contentAlignment = Alignment.Center
     ) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        NutriCard(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier.padding(NutriSpacing.lg),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(NutriSpacing.md)
             ) {
                 Text(
                     text = "NutriGuard Health Alert",
@@ -292,25 +303,23 @@ private fun FallbackRecoveryScreen(
                     textAlign = TextAlign.Center
                 )
 
-                Card(
+                NutriCard(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(NutriSpacing.md)) {
                         Text("Error: ${error?.message ?: "Unknown State Exception"}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(NutriSpacing.xs))
                         Text("Last Screen: $lastTransition", style = MaterialTheme.typography.bodySmall)
                         Text("Last OCR State: $lastOcrState", style = MaterialTheme.typography.bodySmall)
                     }
                 }
 
-                Button(
+                NutriDangerButton(
+                    text = "Recover & Restart",
                     onClick = onRecover,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Recover & Restart")
-                }
+                )
             }
         }
     }

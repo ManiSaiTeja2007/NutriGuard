@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "categoryTemplates": {
+    "SWEETENER": "A sweetening agent used to add flavor and sweetness to food products.",
+    "PRESERVATIVE": "A substance added to food products to prevent decay or spoilage and extend shelf life.",
+    "EMULSIFIER": "An additive that helps mix and stabilize ingredients that would otherwise separate, such as oil and water.",
+    "STABILIZER": "An additive that maintains the physical texture, structure, and consistency of food products.",
+    "ACIDITY_REGULATOR": "An ingredient used to control or alter the acidity or alkalinity of food products.",
+    "FLAVOUR_ENHANCER": "A compound added to foods to enhance their existing savory or sweet flavors.",
+    "OIL": "A fat source commonly used for texture, moisture, or cooking in processed foods.",
+    "COLORING": "A food additive used to impart or restore color to food products.",
+    "ADDITIVE": "A general food additive used for technological purposes during processing.",
+    "UNKNOWN": "An ingredient with an unspecified category or primary function."
+  }
+}

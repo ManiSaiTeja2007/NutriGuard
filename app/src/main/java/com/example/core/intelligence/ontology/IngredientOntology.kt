@@ -1,6 +1,9 @@
 package com.example.core.intelligence.ontology
 
-import com.example.core.intelligence.enumbers.ENumberEntry
+import com.example.core.additives.ENumberEntry
+import com.example.core.additives.ENumberRepository
+import com.example.core.ontology.OntologyRepository
+import com.example.core.ontology.IngredientCategory
 import java.util.Locale
 
 /**
@@ -57,132 +60,54 @@ object IngredientOntology {
     val categories: Map<String, OntologyCategory> = buildCategories()
 
     private fun buildCategories(): Map<String, OntologyCategory> {
-        val cats = listOf(
-            OntologyCategory(
-                name = "sweeteners",
-                members = setOf(
-                    "sucrose", "fructose", "glucose", "dextrose", "maltose",
-                    "stevia", "erythritol", "xylitol", "sorbitol", "mannitol",
-                    "aspartame", "sucralose", "acesulfame potassium",
-                    "sugar", "cane sugar", "beet sugar", "high fructose corn syrup",
-                    "corn syrup", "corn syrup solids", "malt syrup", "maple syrup",
-                    "agave syrup", "rice syrup", "brown sugar", "raw sugar",
-                    "invert sugar", "molasses", "honey"
-                )
-            ),
-            OntologyCategory(
-                name = "sugar_alcohols",
-                parentCategory = "sweeteners",
-                members = setOf("erythritol", "xylitol", "sorbitol", "mannitol", "maltitol", "lactitol")
-            ),
-            OntologyCategory(
-                name = "preservatives",
-                members = setOf(
-                    "sodium benzoate", "potassium sorbate", "calcium propionate",
-                    "sodium nitrate", "sodium nitrite", "potassium nitrate",
-                    "sodium diacetate", "propionic acid", "sorbic acid",
-                    "benzoic acid", "tertiary butylhydroquinone",
-                    "butylated hydroxyanisole", "butylated hydroxytoluene"
-                )
-            ),
-            OntologyCategory(
-                name = "emulsifiers",
-                members = setOf(
-                    "soy lecithin", "sunflower lecithin", "lecithin",
-                    "mono and diglycerides", "diglycerides", "monoglycerides",
-                    "polysorbate 80", "polysorbate 60", "polysorbate 20",
-                    "sodium stearoyl lactylate", "calcium stearoyl lactylate",
-                    "polyglycerol polyricinoleate", "diacetyl tartaric acid esters"
-                )
-            ),
-            OntologyCategory(
-                name = "acidity_regulators",
-                members = setOf(
-                    "citric acid", "malic acid", "lactic acid",
-                    "tartaric acid", "acetic acid", "phosphoric acid",
-                    "fumaric acid", "adipic acid", "glucono delta lactone",
-                    "sodium citrate", "potassium citrate", "calcium citrate",
-                    "sodium acetate", "potassium acetate", "acidity regulator"
-                )
-            ),
-            OntologyCategory(
-                name = "thickeners",
-                members = setOf(
-                    "xanthan gum", "guar gum", "carrageenan", "pectin", "gelatin",
-                    "carob bean gum", "locust bean gum", "agar", "agar agar",
-                    "cellulose gum", "methyl cellulose", "hydroxypropyl cellulose",
-                    "modified starch", "modified corn starch", "tapioca starch",
-                    "potato starch", "corn starch"
-                )
-            ),
-            OntologyCategory(
-                name = "colors",
-                members = setOf(
-                    "caramel color", "titanium dioxide", "red 40", "yellow 5",
-                    "yellow 6", "blue 1", "blue 2", "red 3",
-                    "annatto", "carmine", "beet juice", "turmeric",
-                    "paprika extract", "beta carotene", "riboflavin"
-                )
-            ),
-            OntologyCategory(
-                name = "vitamins",
-                members = setOf(
-                    "niacin", "riboflavin", "thiamine mononitrate", "folic acid",
-                    "ascorbic acid", "tocopherols", "vitamin d", "vitamin b12",
-                    "pantothenic acid", "biotin", "pyridoxine"
-                )
-            ),
-            OntologyCategory(
-                name = "minerals",
-                members = setOf(
-                    "calcium carbonate", "reduced iron", "zinc oxide",
-                    "potassium iodide", "ferrous sulfate", "ferric orthophosphate",
-                    "zinc sulfate", "magnesium oxide", "calcium phosphate",
-                    "dicalcium phosphate", "tricalcium phosphate"
-                )
-            ),
-            OntologyCategory(
-                name = "flavor_enhancers",
-                members = setOf(
-                    "monosodium glutamate", "disodium inosinate", "disodium guanylate",
-                    "yeast extract", "autolyzed yeast extract", "hydrolyzed vegetable protein",
-                    "hydrolyzed soy protein", "hydrolyzed corn protein"
-                )
-            ),
-            OntologyCategory(
-                name = "leavening_agents",
-                members = setOf(
-                    "baking soda", "sodium bicarbonate", "ammonium bicarbonate",
-                    "monocalcium phosphate", "sodium aluminum phosphate",
-                    "sodium acid pyrophosphate", "cream of tartar",
-                    "potassium hydrogen tartrate"
-                )
-            ),
-            OntologyCategory(
-                name = "dairy",
-                members = setOf(
-                    "milk", "cheese", "butter", "whey", "lactose", "cream",
-                    "skim milk", "whole milk", "milk fat", "buttermilk",
-                    "casein", "caseinate", "sodium caseinate", "whey protein",
-                    "milk protein", "nonfat dry milk", "nonfat milk"
-                )
-            ),
-            OntologyCategory(
-                name = "allergens",
-                members = setOf(
-                    "milk", "eggs", "soy", "wheat", "peanuts", "tree nuts",
-                    "fish", "shellfish", "sesame", "soy lecithin", "whey",
-                    "lactose", "casein", "gluten"
+        val cats = mutableListOf<OntologyCategory>()
+        
+        // Loop over each IngredientCategory enum and populate
+        IngredientCategory.values().forEach { category ->
+            val membersSet = mutableSetOf<String>()
+            
+            // Add from OntologyRepository matching category
+            OntologyRepository.getAll()
+                .filter { it.category == category }
+                .forEach { entry ->
+                    membersSet.add(entry.canonicalName.lowercase(Locale.ROOT))
+                    entry.aliases.forEach { membersSet.add(it.lowercase(Locale.ROOT)) }
+                }
+
+            // Add from ENumberRepository matching category
+            ENumberRepository.getAll()
+                .filter { it.category == category }
+                .forEach { entry ->
+                    membersSet.add(entry.canonicalName.lowercase(Locale.ROOT))
+                    membersSet.add(entry.code.lowercase(Locale.ROOT))
+                    entry.aliases.forEach { membersSet.add(it.lowercase(Locale.ROOT)) }
+                }
+
+            val catName = category.name.lowercase(Locale.ROOT)
+            cats.add(
+                OntologyCategory(
+                    name = catName,
+                    members = membersSet,
+                    parentCategory = if (catName == "sugar_alcohols") "sweeteners" else null
                 )
             )
+        }
+        
+        // Add manual parent/child override for sugar alcohols
+        val sugarAlcoholsMembers = setOf("erythritol", "xylitol", "sorbitol", "mannitol", "maltitol", "lactitol")
+        cats.add(
+            OntologyCategory(
+                name = "sugar_alcohols",
+                members = sugarAlcoholsMembers,
+                parentCategory = "sweeteners"
+            )
         )
+
         return cats.associateBy { it.name }
     }
 
     /**
      * Resolves E-number and abbreviation aliases to their canonical ingredient names.
-     * Subclass relationships remain available through [isSubclassOf] but are not
-     * applied as automatic corrections, so exact vocabulary terms remain stable.
      */
     fun resolve(token: String): String? {
         val clean = token.lowercase(Locale.ROOT).trim()

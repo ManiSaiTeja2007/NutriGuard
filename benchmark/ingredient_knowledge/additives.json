@@ -1,0 +1,37 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "code": "E330",
+      "canonicalName": "citric acid",
+      "category": "ACIDITY_REGULATOR",
+      "aliases": ["citnc acid", "citricacid", "acid citric"],
+      "description": "acidity regulator and antioxidant commonly found in citrus fruits",
+      "commonOcrErrors": ["citnc acid", "citric ac1d", "cltrlc"]
+    },
+    {
+      "code": "E621",
+      "canonicalName": "monosodium glutamate",
+      "category": "FLAVOUR_ENHANCER",
+      "aliases": ["msg", "mono sodium glutamate", "monosodum glutamate"],
+      "description": "flavour enhancer commonly used in savory processed foods",
+      "commonOcrErrors": ["e62i", "e62l", "mono sodium glutamat", "monosodum"]
+    },
+    {
+      "code": "E322",
+      "canonicalName": "soy lecithin",
+      "category": "EMULSIFIER",
+      "aliases": ["lecithine", "lecithin", "sojalecithin"],
+      "description": "emulsifier derived from soybeans, helps mix fats and water",
+      "commonOcrErrors": ["e322i", "e322l", "e3221"]
+    },
+    {
+      "code": "E460(i)",
+      "canonicalName": "microcrystalline cellulose",
+      "category": "STABILIZER",
+      "aliases": ["cellulose", "microcrystallinecellulose", "e460i", "e460"],
+      "description": "anti-caking agent, stabilizer, and bulking agent derived from wood pulp",
+      "commonOcrErrors": ["e460c", "e460i", "e460l", "e4601", "e460(l)", "e460(1)"]
+    }
+  ]
+}

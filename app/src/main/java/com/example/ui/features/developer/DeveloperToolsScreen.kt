@@ -1,14 +1,10 @@
 package com.example.ui.features.developer
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,12 +12,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.ui.design.*
 import com.example.ui.navigation.NavController
 import com.example.ui.navigation.Screen
 import org.json.JSONObject
 import java.io.File
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeveloperToolsScreen(
     navController: NavController,
@@ -52,21 +48,9 @@ fun DeveloperToolsScreen(
         loadingReplays = false
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Developer Diagnostics", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(imageVector = Icons.Default.Menu, contentDescription = "Open Drawer")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            )
-        },
+    NutriScreenScaffold(
+        title = "Developer Diagnostics",
+        onOpenDrawer = onOpenDrawer,
         modifier = modifier
     ) { paddingValues ->
         Column(
@@ -74,27 +58,24 @@ fun DeveloperToolsScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(NutriSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(NutriSpacing.md)
         ) {
             // Dashboard summary card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            NutriCard(
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(NutriSpacing.md),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Build,
+                        imageVector = NutriIcons.Build,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(NutriIcons.lg)
                     )
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(NutriSpacing.md))
                     Column {
                         Text(
                             text = "Developer Admin Console",
@@ -116,30 +97,19 @@ fun DeveloperToolsScreen(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 4.dp)
+                modifier = Modifier.padding(horizontal = NutriSpacing.xs)
             )
 
             if (loadingReplays) {
-                Box(
-                    modifier = Modifier.fillMaxSize().weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
+                NutriLoadingState(
+                    message = "Loading replays...",
+                    modifier = Modifier.fillMaxWidth().weight(1f)
+                )
             } else if (replaysList.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(1f)
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No local replays logged in cache.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                NutriEmptyState(
+                    message = "No local replays logged in cache.",
+                    modifier = Modifier.fillMaxWidth().weight(1f)
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier
@@ -160,16 +130,12 @@ fun DeveloperToolsScreen(
 
 @Composable
 private fun ReplayRowItem(item: ReplayItem, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    NutriCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(NutriSpacing.md),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -192,7 +158,7 @@ private fun ReplayRowItem(item: ReplayItem, onClick: () -> Unit) {
                 )
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(NutriSpacing.sm))
 
             if (item.failuresCount > 0) {
                 Box(

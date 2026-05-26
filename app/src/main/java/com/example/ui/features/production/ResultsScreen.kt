@@ -23,8 +23,10 @@ import com.example.core.intelligence.correction.FailureType
 import com.example.data.AppSettings
 import com.example.ui.navigation.NavController
 import com.example.ui.navigation.Screen
+import com.example.ui.design.*
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +59,12 @@ fun ResultsScreen(
                     for (j in 0 until phraseWindowArr.length()) phraseWindow.add(phraseWindowArr.getString(j))
                 }
 
+                val warningsArr = obj.optJSONArray("warnings")
+                val warnings = mutableListOf<String>()
+                if (warningsArr != null) {
+                    for (j in 0 until warningsArr.length()) warnings.add(warningsArr.getString(j))
+                }
+
                 list.add(
                     CorrectionResult(
                         canonical = obj.getString("canonical"),
@@ -66,7 +74,11 @@ fun ResultsScreen(
                         phraseWindow = phraseWindow,
                         ontologyCategory = obj.optString("ontologyCategory").ifBlank { null },
                         disambiguationRule = obj.optString("disambiguationRule").ifBlank { null },
-                        groupPath = obj.optString("groupPath").ifBlank { "root" }
+                        groupPath = obj.optString("groupPath").ifBlank { "root" },
+                        interpretedCategory = obj.optString("interpretedCategory").ifBlank { null },
+                        additiveCode = obj.optString("additiveCode").ifBlank { null },
+                        explanation = obj.optString("explanation").ifBlank { null },
+                        warnings = warnings
                     )
                 )
             }
@@ -91,21 +103,9 @@ fun ResultsScreen(
         map
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Analysis Results", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateTo(Screen.Home) }) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back to Home")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            )
-        },
+    NutriScreenScaffold(
+        title = "Analysis Results",
+        onBack = { navController.navigateTo(Screen.Home) },
         modifier = modifier
     ) { paddingValues ->
         Column(
@@ -118,13 +118,8 @@ fun ResultsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // 1. Potential Concerns Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            NutriCard(
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -192,13 +187,8 @@ fun ResultsScreen(
             }
 
             // 2. Ingredients Detected Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            NutriCard(
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
@@ -226,13 +216,12 @@ fun ResultsScreen(
 
             // 3. Diagnostics Panel (if diagnostics are enabled for this build mode)
             if (FeatureFlags.enableDiagnostics) {
-                Card(
+                NutriCard(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = NutriElevation.flat)
                 ) {
                     var expanded by remember { mutableStateOf(false) }
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -344,16 +333,12 @@ fun ResultsScreen(
             }
 
             // Navigation Button
-            Button(
+            NutriPrimaryButton(
+                text = "Return to Dashboard",
                 onClick = { navController.clearBackStackAndNavigate(Screen.Home) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            ) {
-                Text("Return to Dashboard")
-            }
+                icon = NutriIcons.Home,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -376,17 +361,18 @@ private fun IngredientItemRow(ingredient: CorrectionResult) {
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                if (ingredient.originalToken != ingredient.canonical && ingredient.originalToken.isNotBlank()) {
+                if (showTraceOption && ingredient.originalToken != ingredient.canonical && ingredient.originalToken.isNotBlank()) {
                     Text(
                         text = "Original: \"${ingredient.originalToken}\"",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                // Ontology category badge
-                val category = ingredient.ontologyCategory
-                if (category != null) {
-                    Spacer(modifier = Modifier.height(2.dp))
+
+                // Category display badge
+                val categoryName = ingredient.interpretedCategory ?: ingredient.ontologyCategory
+                if (categoryName != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
                     Box(
                         modifier = Modifier
                             .background(
@@ -396,13 +382,44 @@ private fun IngredientItemRow(ingredient: CorrectionResult) {
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = category.replace('_', ' '),
+                            text = categoryName.replace('_', ' ').uppercase(Locale.ROOT),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
+
+                // Factual explanation text
+                if (!ingredient.explanation.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = ingredient.explanation,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Conservative warnings display
+                for (warning in ingredient.warnings) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Warning",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = warning,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
                 // Disambiguation rule (debug mode)
                 if (showTraceOption && ingredient.disambiguationRule != null) {
                     Text(
@@ -414,26 +431,28 @@ private fun IngredientItemRow(ingredient: CorrectionResult) {
             }
 
             // Match tag chip / failures
-            val hasFailures = ingredient.failures.isNotEmpty()
-            val tagColor = if (hasFailures) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
-            val textColor = if (hasFailures) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
-            val labelText = if (hasFailures) {
-                ingredient.failures.first().name
-            } else {
-                "PASSED (${(ingredient.confidence * 100).toInt()}%)"
-            }
+            if (showTraceOption) {
+                val hasFailures = ingredient.failures.isNotEmpty()
+                val tagColor = if (hasFailures) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
+                val textColor = if (hasFailures) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                val labelText = if (hasFailures) {
+                    ingredient.failures.first().name
+                } else {
+                    "PASSED (${(ingredient.confidence * 100).toInt()}%)"
+                }
 
-            Box(
-                modifier = Modifier
-                    .background(tagColor, RoundedCornerShape(4.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = labelText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = textColor,
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier
+                        .background(tagColor, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = labelText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = textColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
 

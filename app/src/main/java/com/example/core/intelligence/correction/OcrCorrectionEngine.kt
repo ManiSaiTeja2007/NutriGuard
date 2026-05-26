@@ -4,7 +4,7 @@ import com.example.core.intelligence.ambiguity.OCRConfusionResolver
 import com.example.core.intelligence.calibration.ConfidenceCalibrationEngine
 import com.example.core.intelligence.contextual.ContextualDisambiguator
 import com.example.core.intelligence.contextual.DisambiguationContext
-import com.example.core.intelligence.enumbers.ENumberEntry
+import com.example.core.additives.ENumberEntry
 import com.example.core.intelligence.enumbers.ENumberRepairEngine
 import com.example.core.intelligence.fuzzy.CorrectionContext
 import com.example.core.intelligence.fuzzy.Levenshtein
@@ -28,7 +28,11 @@ data class CorrectionResult(
     val phraseWindow: List<String> = emptyList(),
     val ontologyCategory: String? = null,
     val disambiguationRule: String? = null,
-    val groupPath: String = "root"
+    val groupPath: String = "root",
+    val interpretedCategory: String? = null,
+    val additiveCode: String? = null,
+    val explanation: String? = null,
+    val warnings: List<String> = emptyList()
 ) {
     /** The original raw OCR token, extracted from the first debug step. */
     val originalToken: String
