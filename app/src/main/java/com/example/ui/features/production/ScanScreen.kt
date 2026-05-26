@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.geometry.Offset
@@ -65,7 +66,7 @@ fun ScanScreen(
     NutriScreenScaffold(
         title = "Product Ingestion Scan",
         onOpenDrawer = onOpenDrawer,
-        modifier = modifier
+        modifier = modifier.testTag("scan_screen")
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -222,7 +223,7 @@ private fun LiveCameraPanel(
                 onClick = {
                     viewModel.ingestLiveCamera(context, navController)
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("scan_ingest_button"),
                 enabled = ocrText.isNotBlank()
             )
         }
@@ -464,7 +465,7 @@ private fun TestImagesPanel(
             onClick = {
                 viewModel.ingestTestImage(context, navController)
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("scan_ingest_button"),
             enabled = ocrText.isNotBlank() && !uiState.isIngesting,
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF116A5B),

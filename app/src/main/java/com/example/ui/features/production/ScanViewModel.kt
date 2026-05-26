@@ -200,6 +200,7 @@ class ScanViewModel : ViewModel() {
         ocrResult: OcrResult,
         navController: NavController
     ) = withContext(Dispatchers.Default) {
+        val executionId = java.util.UUID.randomUUID()
         val ocrText = ocrResult.text
         val ocrLatency = ocrResult.processingLatencyMs
         val ocrConfidence = ocrResult.averageConfidence ?: 0.8f
@@ -328,12 +329,132 @@ class ScanViewModel : ViewModel() {
             )
         }
 
+        // Create the PipelineResult & PipelineSnapshot to cache in repository
+        val semanticIngredients = ingestionResult.correction.output.map { result ->
+            val interpretation = IngredientInterpreter.interpret(
+                canonicalName = result.canonical,
+                confidence = result.confidence,
+                originalToken = result.originalToken
+            )
+            com.example.core.pipeline.SemanticIngredient(
+                canonical = result.canonical,
+                originalToken = result.originalToken,
+                confidence = result.confidence,
+                failures = result.failures,
+                debugSteps = result.debugSteps,
+                phraseWindow = result.phraseWindow,
+                ontologyCategory = result.ontologyCategory,
+                disambiguationRule = result.disambiguationRule,
+                groupPath = result.groupPath,
+                interpretedCategory = interpretation.category.name,
+                additiveCode = interpretation.additiveCode,
+                explanation = interpretation.explanation,
+                warnings = interpretation.warnings
+            )
+        }
+
+        val interpretedIngredients = semanticIngredients.map { ing ->
+            IngredientInterpreter.interpret(
+                canonicalName = ing.canonical,
+                confidence = ing.confidence,
+                originalToken = ing.originalToken
+            )
+        }
+
+        val replayTraceList = listOf(
+            com.example.core.replay.ReplayStageTrace(
+                stageName = "ocr",
+                input = "image",
+                output = ocrText,
+                latencyMs = ocrLatency
+            ),
+            com.example.core.replay.ReplayStageTrace(
+                stageName = "normalization",
+                input = ocrText,
+                output = ingestionResult.normalization.output,
+                latencyMs = ingestionResult.normalization.latencyMs
+            ),
+            com.example.core.replay.ReplayStageTrace(
+                stageName = "extraction",
+                input = ingestionResult.normalization.output,
+                output = ingestionResult.extraction.output.joinToString(", "),
+                latencyMs = ingestionResult.extraction.latencyMs
+            ),
+            com.example.core.replay.ReplayStageTrace(
+                stageName = "correction",
+                input = ingestionResult.phraseCorrection.output.joinToString(", "),
+                output = ingestionResult.correction.output.map { it.canonical }.joinToString(", "),
+                latencyMs = ingestionResult.correction.latencyMs
+            )
+        )
+
+        val pipelineFailuresList = mutableListOf<com.example.core.pipeline.PipelineFailure>()
+        ocrResult.failures.forEach { fail ->
+            pipelineFailuresList.add(com.example.core.pipeline.PipelineFailure(fail, "ocr", "OCR stage error: ${ocrResult.skippedReason ?: "unknown validation failure"}"))
+        }
+        ingestionResult.normalization.failures.forEach { fail ->
+            pipelineFailuresList.add(com.example.core.pipeline.PipelineFailure(fail, "normalization", "Normalization failed: output was blank"))
+        }
+        ingestionResult.extraction.failures.forEach { fail ->
+            pipelineFailuresList.add(com.example.core.pipeline.PipelineFailure(fail, "extraction", "Extraction failed: zero tokens parsed from input"))
+        }
+        ingestionResult.correction.output.forEach { res ->
+            res.failures.forEach { fail ->
+                pipelineFailuresList.add(com.example.core.pipeline.PipelineFailure(fail, "correction", "Token correction warning on '${res.originalToken}': ${fail.name}"))
+            }
+        }
+
+        val pipelineMetrics = com.example.core.pipeline.PipelineMetrics(
+            ocrLatencyMs = ocrLatency,
+            normalizationLatencyMs = ingestionResult.normalization.latencyMs,
+            extractionLatencyMs = ingestionResult.extraction.latencyMs,
+            groupingLatencyMs = ingestionResult.grouping.latencyMs,
+            phraseCorrectionLatencyMs = ingestionResult.phraseCorrection.latencyMs,
+            correctionLatencyMs = ingestionResult.correction.latencyMs,
+            totalLatencyMs = latenciesMap.values.sum(),
+            memoryUsageKb = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / 1024L,
+            averageConfidence = ocrConfidence
+        )
+
+        val preprocessingProfile = com.example.core.pipeline.PreprocessingProfile(
+            blurScore = ocrResult.blurScore,
+            contrastScore = ocrResult.contrastScore,
+            brightnessScore = ocrResult.brightnessScore,
+            complexityRating = ocrResult.complexityRating,
+            routedStrategy = ocrResult.routedStrategy
+        )
+
+        val pipelineResult = com.example.core.pipeline.PipelineResult(
+            executionId = executionId,
+            ocrBlocks = ocrResult.ocrBlocks,
+            ocrLines = ocrResult.reconstructedLines,
+            semanticIngredients = semanticIngredients,
+            interpretedIngredients = interpretedIngredients,
+            replayTrace = replayTraceList,
+            metrics = pipelineMetrics,
+            preprocessingProfile = preprocessingProfile,
+            failures = pipelineFailuresList
+        )
+
+        val renamedPaths = com.example.core.export.PipelineSnapshotRepository.renameTempFiles(context, executionId.toString())
+        val snapshot = com.example.core.export.PipelineSnapshot(
+            executionId = executionId.toString(),
+            rawImagePath = renamedPaths.first,
+            preprocessedImagePath = renamedPaths.second,
+            result = pipelineResult,
+            timestamp = System.currentTimeMillis(),
+            scanSource = sourceName
+        )
+        println("ScanViewModel: Adding snapshot with executionId = '${executionId.toString()}' to PipelineSnapshotRepository")
+        com.example.core.export.PipelineSnapshotRepository.add(snapshot)
+
         val routeArgs = Screen.Results(
             rawOcrText = ocrText,
             normalizedText = ingestionResult.normalization.output,
             extractedTokens = ingestionResult.extraction.output,
             canonicalJson = canonicalJson,
-            latencyJson = latenciesJson
+            latencyJson = latenciesJson,
+            executionId = executionId.toString()
         )
 
         withContext(Dispatchers.Main) {

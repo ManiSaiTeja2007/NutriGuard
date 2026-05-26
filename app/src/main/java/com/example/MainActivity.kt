@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -78,6 +79,16 @@ class MainActivity : ComponentActivity() {
                 )
 
                 val navController = remember { NavController() }
+
+                androidx.activity.compose.BackHandler(enabled = true) {
+                    if (!navController.popBackStack()) {
+                        if (navController.currentScreen != Screen.Home) {
+                            navController.clearBackStackAndNavigate(Screen.Home)
+                        } else {
+                            this@MainActivity.finish()
+                        }
+                    }
+                }
 
                 if (AppHealthMonitor.hasError) {
                     FallbackRecoveryScreen(
@@ -148,13 +159,6 @@ class MainActivity : ComponentActivity() {
                                     navController = navController,
                                     onOpenDrawer = { scope.launch { drawerState.open() } }
                                 )
-                                is Screen.DeveloperExport -> {
-                                    val devExportViewModel = remember { com.example.ui.features.developer.export.DeveloperExportViewModel() }
-                                    com.example.ui.features.developer.export.DeveloperExportScreen(
-                                        navController = navController,
-                                        viewModel = devExportViewModel
-                                    )
-                                }
                             }
                         }
                     }
@@ -228,12 +232,6 @@ private fun NavigationDrawerContent(
                 icon = NutriIcons.Build,
                 onClick = { onNavigate(Screen.DeveloperTools) }
             )
-            DrawerItem(
-                label = "Session Exporter",
-                selected = currentScreen is Screen.DeveloperExport,
-                icon = NutriIcons.Share,
-                onClick = { onNavigate(Screen.DeveloperExport) }
-            )
         }
 
         if (FeatureFlags.enableBenchmarks) {
@@ -264,7 +262,9 @@ private fun DrawerItem(
             selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
             selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer
         ),
-        modifier = Modifier.padding(horizontal = NutriSpacing.sm)
+        modifier = Modifier
+            .padding(horizontal = NutriSpacing.sm)
+            .testTag("drawer_${label.lowercase().replace(" ", "_")}")
     )
 }
 

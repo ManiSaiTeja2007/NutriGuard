@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import com.example.core.config.FeatureFlags
 import com.example.data.AppSettings
@@ -43,7 +44,7 @@ fun SettingsScreen(
     NutriScreenScaffold(
         title = "System Settings",
         onOpenDrawer = onOpenDrawer,
-        modifier = modifier
+        modifier = modifier.testTag("settings_screen")
     ) { paddingValues ->
         Box(
             modifier = Modifier

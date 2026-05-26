@@ -208,13 +208,14 @@ class PipelineRunner(
         )
 
         if (context != null) {
-            val rawPath = java.io.File(context.cacheDir, "temp_snapshot_raw.png").let { if (it.exists()) it.absolutePath else null }
-            val prepPath = java.io.File(context.cacheDir, "temp_snapshot_prep.png").let { if (it.exists()) it.absolutePath else null }
+            val renamedPaths = com.example.core.export.PipelineSnapshotRepository.renameTempFiles(context, executionId.toString())
             val snapshot = com.example.core.export.PipelineSnapshot(
                 executionId = executionId.toString(),
-                rawImagePath = rawPath,
-                preprocessedImagePath = prepPath,
-                result = finalResult
+                rawImagePath = renamedPaths.first,
+                preprocessedImagePath = renamedPaths.second,
+                result = finalResult,
+                timestamp = System.currentTimeMillis(),
+                scanSource = source.name
             )
             com.example.core.export.PipelineSnapshotRepository.update(snapshot)
         }

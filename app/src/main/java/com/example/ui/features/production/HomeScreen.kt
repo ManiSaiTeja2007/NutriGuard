@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -28,7 +29,7 @@ fun HomeScreen(
     NutriScreenScaffold(
         title = "NutriGuard",
         onOpenDrawer = onOpenDrawer,
-        modifier = modifier
+        modifier = modifier.testTag("home_screen")
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -83,7 +84,9 @@ fun HomeScreen(
                 text = "Scan Product Label",
                 onClick = { navController.navigateTo(Screen.Scan) },
                 icon = NutriIcons.Search,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("scan_product_label_button")
             )
         }
     }

@@ -9,7 +9,8 @@ sealed class Screen(val route: String) {
         val normalizedText: String,
         val extractedTokens: List<String>,
         val canonicalJson: String,      // JSON string of List<CorrectionResult>
-        val latencyJson: String         // JSON string of stage latencies
+        val latencyJson: String,         // JSON string of stage latencies
+        val executionId: String = ""
     ) : Screen("results")
     
     object Settings : Screen("settings")
@@ -19,5 +20,4 @@ sealed class Screen(val route: String) {
     object DeveloperTools : Screen("developer_tools")
     data class ReplayViewer(val replayId: String) : Screen("replay_viewer")
     object BenchmarkRunner : Screen("benchmark_runner")
-    object DeveloperExport : Screen("developer_export")
 }

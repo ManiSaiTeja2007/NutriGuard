@@ -14,9 +14,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.core.config.BuildCapabilities
 import com.example.core.config.FeatureFlags
 import com.example.core.intelligence.correction.CorrectionResult
 import com.example.core.intelligence.correction.FailureType
@@ -106,7 +108,7 @@ fun ResultsScreen(
     NutriScreenScaffold(
         title = "Analysis Results",
         onBack = { navController.navigateTo(Screen.Home) },
-        modifier = modifier
+        modifier = modifier.testTag("results_screen")
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -332,13 +334,36 @@ fun ResultsScreen(
                 }
             }
 
-            // Navigation Button
-            NutriPrimaryButton(
-                text = "Return to Dashboard",
-                onClick = { navController.clearBackStackAndNavigate(Screen.Home) },
-                icon = NutriIcons.Home,
-                modifier = Modifier.fillMaxWidth()
-            )
+            var devToolsExpanded by remember { mutableStateOf(false) }
+
+            // Bottom Actions Area
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(NutriSpacing.md),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                NutriSecondaryButton(
+                    text = "Back",
+                    onClick = { navController.navigateTo(Screen.Home) },
+                    modifier = Modifier.weight(1f).testTag("results_back_button")
+                )
+
+                if (BuildCapabilities.isDeveloperBuild && args.executionId.isNotEmpty()) {
+                    NutriPrimaryButton(
+                        text = if (devToolsExpanded) "Hide Dev Tools" else "Developer Tools",
+                        onClick = { devToolsExpanded = !devToolsExpanded },
+                        modifier = Modifier.weight(1f).testTag("developer_tools_expand")
+                    )
+                }
+            }
+
+            if (BuildCapabilities.isDeveloperBuild && args.executionId.isNotEmpty() && devToolsExpanded) {
+                println("ResultsScreen: composing ExpandableDeveloperSection with executionId = '${args.executionId}'")
+                com.example.ui.features.developer.components.ExpandableDeveloperSection(
+                    executionId = args.executionId,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
