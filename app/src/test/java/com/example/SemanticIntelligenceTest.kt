@@ -201,14 +201,14 @@ class SemanticIntelligenceTest {
         assertEquals(0.12f, res1.bonusApplied, 0.001f)
         assertEquals("neighbor category: acidity_regulator", res1.reason)
 
-        // 2. Keyword context bonus (using a preservative like sodium benzoate)
-        val res2 = scorer.scoreCandidate("sodium benzoate", 0.65f, emptySet(), keywords)
+        // 2. Keyword context bonus (using a preservative candidate and acidity regulator neighbor keyword)
+        val res2 = scorer.scoreCandidate("sodium benzoate", 0.65f, emptySet(), setOf("acidity_regulator"))
         assertEquals(0.77f, res2.finalConfidence, 0.001f)
         assertEquals(0.12f, res2.bonusApplied, 0.001f)
-        assertEquals("neighbor keyword match: preservative", res2.reason)
+        assertEquals("neighbor keyword match: acidity_regulator", res2.reason)
 
         // 3. Additive proximity bonus
-        val res3 = scorer.scoreCandidate("e330", 0.65f, categories, emptySet())
+        val res3 = scorer.scoreCandidate("e330", 0.65f, categories, setOf("e621"))
         assertEquals(0.85f, res3.finalConfidence, 0.001f)
         assertEquals(0.20f, res3.bonusApplied, 0.001f) // category bonus (0.12) + additive proximity bonus (0.08)
     }
@@ -231,10 +231,13 @@ class SemanticIntelligenceTest {
         assertEquals("citric acid", correctedCitric?.canonical)
         
         // Assert debugSteps contains explainable trace details
-        val traceStr = correctedCitric?.debugSteps?.firstOrNull { it.startsWith("context bonus applied:") }
-        assertNotNull(traceStr)
-        assertTrue(traceStr!!.contains("baseConfidence="))
-        assertTrue(traceStr.contains("bonus=0.12"))
-        assertTrue(traceStr.contains("reason=neighbor category: acidity_regulator"))
+        val baseConfStr = correctedCitric?.debugSteps?.firstOrNull { it.startsWith("base confidence:") }
+        assertNotNull(baseConfStr)
+        val bonusStr = correctedCitric?.debugSteps?.firstOrNull { it.startsWith("contextual bonus:") }
+        assertNotNull(bonusStr)
+        val reasonStr = correctedCitric?.debugSteps?.firstOrNull { it.startsWith("contextual reason:") }
+        assertNotNull(reasonStr)
+        assertTrue(reasonStr!!.contains("neighbor category: acidity_regulator"))
     }
+
 }

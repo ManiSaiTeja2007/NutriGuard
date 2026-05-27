@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "test_name": "Additive Parsing Regression",
+  "test_cases": [
+    { "input": "INS 500(ii)", "expected": "sodium carbonates" },
+    { "input": "INS 500 ( II )", "expected": "sodium carbonates" },
+    { "input": "ins500(ii)", "expected": "sodium carbonates" },
+    { "input": "E 330", "expected": "citric acid" },
+    { "input": "e330", "expected": "citric acid" },
+    { "input": "E621", "expected": "monosodium glutamate" }
+  ]
+}

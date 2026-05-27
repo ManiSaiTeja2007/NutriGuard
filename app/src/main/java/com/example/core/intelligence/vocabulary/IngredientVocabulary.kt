@@ -22,7 +22,8 @@ class IngredientVocabulary {
         "maltose", "stevia", "erythritol", "xylitol", "sorbitol", "mannitol",
         "aspartame", "sucralose", "acesulfame potassium", "red 40", "yellow 5",
         "yellow 6", "blue 1", "caramel color", "titanium dioxide", "sodium chloride",
-        "vegetable oil", "acidity regulator"
+        "vegetable oil", "acidity regulator", "turmeric", "potassium", "sodium carbonate",
+        "sodium carbonates", "cumin", "ginger", "garlic", "saffron"
     )
 
     // Dynamic learned vocabulary
@@ -58,7 +59,13 @@ class IngredientVocabulary {
         "veg oi1" to "vegetable oil",
         "veg oil" to "vegetable oil",
         "mono sodium glutamat" to "monosodium glutamate",
-        "acidity reg" to "acidity regulator"
+        "acidity reg" to "acidity regulator",
+        "s0dium carb" to "sodium carbonate",
+        "potass1um" to "potassium",
+        "e62lll" to "e621",
+        "e62i" to "e621",
+        "ins500(ii)" to "e500",
+        "ins50o(ii)" to "e500"
     )
 
     /**

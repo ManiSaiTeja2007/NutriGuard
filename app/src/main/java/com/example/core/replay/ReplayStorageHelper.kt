@@ -76,6 +76,21 @@ object ReplayStorageHelper {
                     val phraseArr = JSONArray()
                     result.phraseWindow.forEach { phraseArr.put(it) }
                     put("phraseWindow", phraseArr)
+
+                    if (result.confidenceStep != null) {
+                        put("confidenceStep", JSONObject().apply {
+                            put("baseConfidence", result.confidenceStep.baseConfidence.toDouble())
+                            put("contextBonus", result.confidenceStep.contextBonus.toDouble())
+                            put("finalConfidence", result.confidenceStep.finalConfidence.toDouble())
+                            put("reason", result.confidenceStep.reason ?: "")
+                            val infTokensArr = JSONArray()
+                            result.confidenceStep.influencingTokens.forEach { infTokensArr.put(it) }
+                            put("influencingTokens", infTokensArr)
+                        })
+                    }
+                    val infArr = JSONArray()
+                    result.influencingTokens.forEach { infArr.put(it) }
+                    put("influencingTokens", infArr)
                 }
                 canonArr.put(ingObj)
             }

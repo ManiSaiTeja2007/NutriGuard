@@ -39,7 +39,15 @@ object OntologyRepository {
             list.add(IngredientEntry("carrageenan", listOf("carrageen"), IngredientCategory.STABILIZER, "E407", listOf("ultra_processed")))
             list.add(IngredientEntry("sucrose", listOf("sugar"), IngredientCategory.SWEETENER, null, listOf("high_sugar")))
             list.add(IngredientEntry("palm oil", emptyList(), IngredientCategory.OIL, null, listOf("oil", "ultra_processed")))
-            list.add(IngredientEntry("turmeric", emptyList(), IngredientCategory.UNKNOWN, null, emptyList()))
+            list.add(IngredientEntry("turmeric", listOf("haldi", "हल्दी"), IngredientCategory.UNKNOWN, null, emptyList()))
+            list.add(IngredientEntry("salt", listOf("namak", "नमक"), IngredientCategory.UNKNOWN, null, emptyList()))
+            list.add(IngredientEntry("yogurt", listOf("dahi", "दही"), IngredientCategory.UNKNOWN, null, emptyList()))
+            list.add(IngredientEntry("cumin", listOf("jeera", "जीरा"), IngredientCategory.UNKNOWN, null, emptyList()))
+            list.add(IngredientEntry("ginger", listOf("adrak", "अदरक"), IngredientCategory.UNKNOWN, null, emptyList()))
+            list.add(IngredientEntry("garlic", listOf("lahsun", "लहसुन"), IngredientCategory.UNKNOWN, null, emptyList()))
+            list.add(IngredientEntry("saffron", listOf("kesar", "केसर"), IngredientCategory.UNKNOWN, null, emptyList()))
+            list.add(IngredientEntry("water", listOf("wasser"), IngredientCategory.UNKNOWN, null, emptyList()))
+
         }
         list
     }

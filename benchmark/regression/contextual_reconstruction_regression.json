@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "test_name": "Contextual Reconstruction Regression",
+  "test_cases": [
+    {
+      "context": ["e330", "citric ac"],
+      "target_input": "citric ac",
+      "expected": "citric acid",
+      "boost_expected": true
+    },
+    {
+      "context": ["citric acid", "water", "sugar", "citric ac"],
+      "target_input": "citric ac",
+      "expected": "citric acid",
+      "boost_expected": true,
+      "note": "decay test: neighbor citric acid is at distance 3, sugar at 1, water at 2"
+    },
+    {
+      "context": ["e330", "e621", "citric ac"],
+      "target_input": "citric ac",
+      "expected": "citric acid",
+      "boost_expected": true
+    }
+  ]
+}

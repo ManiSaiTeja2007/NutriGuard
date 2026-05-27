@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0.0",
+  "test_name": "Safe Rejection Regression",
+  "test_cases": [
+    { "input": "e99999", "expected_rejected": true },
+    { "input": "randomnoise", "expected_rejected": true },
+    { "input": "xylqz", "expected_rejected": true }
+  ]
+}

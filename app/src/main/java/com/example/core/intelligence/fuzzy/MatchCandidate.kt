@@ -5,5 +5,7 @@ data class MatchCandidate(
     val confidence: Float,
     val distance: Int,
     val contextBonus: Float = 0.0f,
-    val contextReason: String? = null
+    val contextReason: String? = null,
+    val baseConfidence: Float = confidence,
+    val influencingTokens: List<String> = emptyList()
 )

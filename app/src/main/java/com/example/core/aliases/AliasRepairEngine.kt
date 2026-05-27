@@ -36,9 +36,22 @@ object AliasRepairEngine {
             map["citricacd"] = AliasTarget("citric acid", false)
             map["emulsfier"] = AliasTarget("emulsifier", false)
             map["veg oil"] = AliasTarget("vegetable oil", false)
+            map["हल्दी"] = AliasTarget("turmeric", true)
             map["haldi"] = AliasTarget("turmeric", true)
+            map["नमक"] = AliasTarget("salt", true)
             map["namak"] = AliasTarget("salt", true)
+            map["दही"] = AliasTarget("yogurt", true)
             map["dahi"] = AliasTarget("yogurt", true)
+            map["जीरा"] = AliasTarget("cumin", true)
+            map["jeera"] = AliasTarget("cumin", true)
+            map["अदरक"] = AliasTarget("ginger", true)
+            map["adrak"] = AliasTarget("ginger", true)
+            map["लहसुन"] = AliasTarget("garlic", true)
+            map["lahsun"] = AliasTarget("garlic", true)
+            map["केसर"] = AliasTarget("saffron", true)
+            map["kesar"] = AliasTarget("saffron", true)
+            map["wasser"] = AliasTarget("water", true)
+
             map["hfcs"] = AliasTarget("high fructose corn syrup", false)
             map["tbhq"] = AliasTarget("tertiary butylhydroquinone", false)
             map["bha"] = AliasTarget("butylated hydroxyanisole", false)
@@ -66,7 +79,21 @@ object AliasRepairEngine {
 
         // Translation of INS notation variants to standard E-number format
         if (clean.startsWith("ins")) {
-            val digits = clean.substring(3).filter { it.isDigit() || it == '(' || it == ')' || it == 'i' || it == 'v' }
+            val afterIns = clean.substring(3).trim()
+            val parenIndex = afterIns.indexOf('(')
+            val digitsPart = if (parenIndex != -1) afterIns.substring(0, parenIndex) else afterIns
+            val suffixPart = if (parenIndex != -1) afterIns.substring(parenIndex) else ""
+
+            val repairedDigits = digitsPart
+                .replace(" ", "")
+                .replace('o', '0')
+                .replace('O', '0')
+                .replace('l', '1')
+                .replace('i', '1')
+                .replace('I', '1')
+            
+            val body = repairedDigits + suffixPart.replace(" ", "")
+            val digits = body.filter { it.isDigit() || it == '(' || it == ')' || it == 'i' || it == 'v' }
             if (digits.isNotEmpty()) {
                 val eCode = "e$digits"
                 return AliasRepairResult(
@@ -78,6 +105,8 @@ object AliasRepairEngine {
                 )
             }
         }
+
+
 
         return AliasRepairResult(
             originalText = input,

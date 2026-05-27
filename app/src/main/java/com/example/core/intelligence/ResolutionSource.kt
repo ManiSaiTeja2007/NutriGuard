@@ -6,5 +6,6 @@ enum class ResolutionSource {
     TRANSLITERATION,
     ADDITIVE_PARSE,
     FUZZY_MATCH,
+    CONTEXTUAL_RECONSTRUCTION,
     UNKNOWN
 }

@@ -9,8 +9,10 @@ import com.example.core.intelligence.IngredientInterpreter
 import com.example.core.intelligence.correction.OcrMetadata
 import com.example.core.metrics.MetricsCollector
 import com.example.core.replay.ReplayCollector
-import java.util.UUID
-
+import com.example.core.intelligence.explanation.ExplanationType
+import com.example.core.pipeline.PipelineExecutionId
+import com.example.core.pipeline.PipelineResult
+import com.example.core.pipeline.SemanticIngredient
 class PipelineRunner(
     private val ocrPipeline: OCRPipeline,
     private val semanticPipeline: SemanticPipeline
@@ -107,10 +109,21 @@ class PipelineRunner(
 
         // 3. Map to Immutable result structures & Run interpretation stage
         val semanticIngredients = semanticResult.correction.output.map { result ->
+            val contextualReconstructionText = if (result.confidenceStep != null) {
+                if (result.confidenceStep.contextBonus > 0.0f) result.canonical else null
+            } else {
+                if (result.explanationHint?.type == ExplanationType.CONTEXTUAL_RECONSTRUCTION) result.canonical else null
+            }
+            val baseConfidence = result.confidenceStep?.baseConfidence ?: result.confidence
+
             val interpretation = IngredientInterpreter.interpret(
                 canonicalName = result.canonical,
                 confidence = result.confidence,
-                originalToken = result.originalToken
+                originalToken = result.originalToken,
+                contextualReconstructionText = contextualReconstructionText,
+                baseConfidence = baseConfidence,
+                provenance = config.provenance,
+                calibrationEligible = config.calibrationEligible
             )
             SemanticIngredient(
                 canonical = result.canonical,
@@ -132,12 +145,21 @@ class PipelineRunner(
 
         val interpretStart = SystemClock.elapsedRealtime()
         val interpretedIngredients = semanticIngredients.map { ing ->
+            val baseConfLine = ing.debugSteps.firstOrNull { it.startsWith("base confidence:") }
+            val baseConfidence = baseConfLine?.substringAfter("base confidence:")?.trim()?.toFloatOrNull() ?: ing.confidence
+            val contextualReconstructionText = if (ing.disambiguationRule != null || ing.debugSteps.any { it.contains("contextual bonus:") }) ing.canonical else null
+
             IngredientInterpreter.interpret(
                 canonicalName = ing.canonical,
                 confidence = ing.confidence,
-                originalToken = ing.originalToken
+                originalToken = ing.originalToken,
+                contextualReconstructionText = contextualReconstructionText,
+                baseConfidence = baseConfidence,
+                provenance = config.provenance,
+                calibrationEligible = config.calibrationEligible
             )
         }
+
         val interpretLatency = SystemClock.elapsedRealtime() - interpretStart
         metricsCollector.recordLatency("interpretation", interpretLatency)
 

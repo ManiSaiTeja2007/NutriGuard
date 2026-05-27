@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "test_name": "Ambiguity Preservation Regression",
+  "test_cases": [
+    { "input": "masala", "expected": null, "band": "UNCERTAIN" },
+    { "input": "spices", "expected": null, "band": "UNCERTAIN" },
+    { "input": "vegetable oil", "expected": null, "band": "UNCERTAIN" },
+    { "input": "spice mix", "expected": null, "band": "UNCERTAIN" },
+    { "input": "permitted colors", "expected": null, "band": "UNCERTAIN" }
+  ]
+}

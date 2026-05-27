@@ -10,6 +10,7 @@ import com.example.core.confidence.ConfidenceEvaluator
 import com.example.core.confidence.ConfidenceBand
 import com.example.core.explanation.IngredientExplanationEngine
 import com.example.core.risk.RiskInterpreter
+import com.example.core.intelligence.confidence.DatasetProvenance
 import java.util.Locale
 
 object IngredientInterpreter {
@@ -29,7 +30,11 @@ object IngredientInterpreter {
     fun interpret(
         canonicalName: String,
         confidence: Float,
-        originalToken: String = ""
+        originalToken: String = "",
+        contextualReconstructionText: String? = null,
+        baseConfidence: Float = confidence,
+        provenance: DatasetProvenance = DatasetProvenance.REAL_WORLD,
+        calibrationEligible: Boolean = true
     ): InterpretedIngredient {
         val rawText = originalToken.ifEmpty { canonicalName }
         val failuresList = mutableListOf<InterpretationFailure>()
@@ -54,8 +59,10 @@ object IngredientInterpreter {
                 normalizedText = normalizedText,
                 aliasRepairedText = aliasRepairedText,
                 ontologyMatchedName = null,
+                contextualReconstructionText = contextualReconstructionText,
                 confidenceBand = ConfidenceBand.UNCERTAIN.name,
-                finalInterpretation = finalExplanation
+                finalInterpretation = finalExplanation,
+                provenance = provenance
             )
             return InterpretedIngredient(
                 originalText = rawText,
@@ -68,7 +75,9 @@ object IngredientInterpreter {
                 warnings = emptyList(),
                 failures = failuresList,
                 trace = trace,
-                resolutionSource = ResolutionSource.UNKNOWN
+                resolutionSource = ResolutionSource.UNKNOWN,
+                provenance = provenance,
+                calibrationEligible = calibrationEligible
             )
         }
 
@@ -89,8 +98,10 @@ object IngredientInterpreter {
                 normalizedText = normalizedText,
                 aliasRepairedText = aliasRepairedText,
                 ontologyMatchedName = null,
+                contextualReconstructionText = contextualReconstructionText,
                 confidenceBand = ConfidenceBand.UNCERTAIN.name,
-                finalInterpretation = finalExplanation
+                finalInterpretation = finalExplanation,
+                provenance = provenance
             )
             return InterpretedIngredient(
                 originalText = rawText,
@@ -103,7 +114,9 @@ object IngredientInterpreter {
                 warnings = emptyList(),
                 failures = failuresList,
                 trace = trace,
-                resolutionSource = ResolutionSource.UNKNOWN
+                resolutionSource = ResolutionSource.UNKNOWN,
+                provenance = provenance,
+                calibrationEligible = calibrationEligible
             )
         }
 
@@ -119,18 +132,32 @@ object IngredientInterpreter {
         // Resolve the resolution source
         val rawSource = when {
             additiveEntry != null -> ResolutionSource.ADDITIVE_PARSE
+            contextualReconstructionText != null -> ResolutionSource.CONTEXTUAL_RECONSTRUCTION
             aliasResult.isTransliteration -> ResolutionSource.TRANSLITERATION
             aliasResult.isRepaired -> ResolutionSource.ALIAS_MATCH
             normalizedText == resolvedCanonical -> ResolutionSource.EXACT_MATCH
             else -> ResolutionSource.FUZZY_MATCH
         }
 
-        // Apply Transliteration Confidence cap: remains MODERATE unless extra context is present
-        val finalConfidenceBand = if (rawSource == ResolutionSource.TRANSLITERATION) {
-            // Cap confidence at MODERATE
-            if (assessment.band == ConfidenceBand.HIGH) ConfidenceBand.MODERATE else assessment.band
-        } else {
-            assessment.band
+        // Apply Transliteration and Contextual Reconstruction caps and safeguards
+        val finalConfidenceBand = when (rawSource) {
+            ResolutionSource.TRANSLITERATION -> {
+                // Cap confidence at MODERATE
+                if (assessment.band == ConfidenceBand.HIGH) ConfidenceBand.MODERATE else assessment.band
+            }
+            ResolutionSource.CONTEXTUAL_RECONSTRUCTION -> {
+                // Check base confidence safeguard: if base confidence would be LOW or UNCERTAIN, keep it LOW/UNCERTAIN
+                val baseAssessment = ConfidenceEvaluator.assess(baseConfidence, resolvedCanonical)
+                if (baseAssessment.band == ConfidenceBand.LOW || baseAssessment.band == ConfidenceBand.UNCERTAIN) {
+                    baseAssessment.band
+                } else {
+                    // Cap confidence at MODERATE
+                    if (assessment.band == ConfidenceBand.HIGH) ConfidenceBand.MODERATE else assessment.band
+                }
+            }
+            else -> {
+                environmentConfidenceCap(assessment.band, provenance, calibrationEligible)
+            }
         }
         
         // Safeguard if final confidence is weak (LOW or UNCERTAIN) -> return UNKNOWN / UNCERTAIN
@@ -142,8 +169,10 @@ object IngredientInterpreter {
                 normalizedText = normalizedText,
                 aliasRepairedText = aliasRepairedText,
                 ontologyMatchedName = null,
+                contextualReconstructionText = contextualReconstructionText,
                 confidenceBand = ConfidenceBand.UNCERTAIN.name,
-                finalInterpretation = finalExplanation
+                finalInterpretation = finalExplanation,
+                provenance = provenance
             )
             return InterpretedIngredient(
                 originalText = rawText,
@@ -156,7 +185,9 @@ object IngredientInterpreter {
                 warnings = emptyList(),
                 failures = failuresList,
                 trace = trace,
-                resolutionSource = ResolutionSource.UNKNOWN
+                resolutionSource = ResolutionSource.UNKNOWN,
+                provenance = provenance,
+                calibrationEligible = calibrationEligible
             )
         }
 
@@ -174,8 +205,10 @@ object IngredientInterpreter {
             normalizedText = normalizedText,
             aliasRepairedText = aliasRepairedText,
             ontologyMatchedName = resolvedCanonical,
+            contextualReconstructionText = contextualReconstructionText,
             confidenceBand = finalConfidenceBand.name,
-            finalInterpretation = explanation
+            finalInterpretation = explanation,
+            provenance = provenance
         )
 
         return InterpretedIngredient(
@@ -189,7 +222,18 @@ object IngredientInterpreter {
             warnings = warnings,
             failures = failuresList,
             trace = trace,
-            resolutionSource = rawSource
+            resolutionSource = rawSource,
+            provenance = provenance,
+            calibrationEligible = calibrationEligible
         )
     }
+
+    private fun environmentConfidenceCap(band: ConfidenceBand, provenance: DatasetProvenance, calibrationEligible: Boolean): ConfidenceBand {
+        // Enforce calibration eligibility rules
+        if (provenance == DatasetProvenance.FALLBACK || !calibrationEligible) {
+            return ConfidenceBand.UNCERTAIN
+        }
+        return band
+    }
 }
+

@@ -1,20 +1,52 @@
 {
   "openfoodfacts_ingredients": {
+    "dataset_type": "REAL_WORLD",
     "source_url": "https://static.openfoodfacts.org/data/taxonomies/ingredients.json",
-    "download_date": "2026-05-27",
-    "version": "1.0.0",
-    "checksum_sha256": "b42a1628d9d50c9a5623fb46460ec62782ad939f55d4820cf27a99f1de6fb696"
+    "download_timestamp": "2026-05-27T12:08:48Z",
+    "checksum_sha256": "b42a1628d9d50c9a5623fb46460ec62782ad939f55d4820cf27a99f1de6fb696",
+    "verified": true,
+    "calibration_eligible": true,
+    "corruption_detected": false,
+    "fallback_used": false
   },
   "openfoodfacts_additives": {
+    "dataset_type": "REAL_WORLD",
     "source_url": "https://static.openfoodfacts.org/data/taxonomies/additives.json",
-    "download_date": "2026-05-27",
-    "version": "1.0.0",
-    "checksum_sha256": "7ad77ce8ca840304262e5a28f48c9fa70df730c54a5b6237ca438d5af3461361"
+    "download_timestamp": "2026-05-27T12:08:48Z",
+    "checksum_sha256": "7ad77ce8ca840304262e5a28f48c9fa70df730c54a5b6237ca438d5af3461361",
+    "verified": true,
+    "calibration_eligible": true,
+    "corruption_detected": false,
+    "fallback_used": false
   },
   "openfoodfacts_products": {
-    "source_url": "https://world.openfoodfacts.org/cgi/search.pl?search_terms=ingredients&json=true&page_size=50",
-    "download_date": "2026-05-27",
-    "version": "1.0.0",
-    "checksum_sha256": "dac4a0cea513c558c7be5a9e062ccced3a5428ae6ceb9c84b5f0fe99e3da9d49"
+    "dataset_type": "REAL_WORLD",
+    "source_url": "https://world.openfoodfacts.org/api/v2/search?search_terms=ingredients&fields=code,product_name,ingredients_text,categories,additives_tags,ingredients_tags&page_size=50",
+    "download_timestamp": "2026-05-27T12:08:48Z",
+    "checksum_sha256": "8246f473d94f66106f72b18b0df6e75bd55a096c92ebd31eb3adc94b888cc79b",
+    "verified": true,
+    "calibration_eligible": true,
+    "corruption_detected": false,
+    "fallback_used": false
+  },
+  "fail_001.png": {
+    "dataset_type": "REAL_WORLD",
+    "source_url": "local://failure_cases/fail_001.png",
+    "download_timestamp": "2026-05-27T12:08:48Z",
+    "checksum_sha256": "99be7829bf74bff4e63323700c8196ab8dedf9c656fb6d24437118bf5339e96e",
+    "verified": true,
+    "calibration_eligible": true,
+    "corruption_detected": false,
+    "fallback_used": false
+  },
+  "fail_002.png": {
+    "dataset_type": "REAL_WORLD",
+    "source_url": "local://failure_cases/fail_002.png",
+    "download_timestamp": "2026-05-27T12:08:48Z",
+    "checksum_sha256": "34db604216027a7099ecdf2e7b849a50c85090942ea417ef47be24987ae0e375",
+    "verified": true,
+    "calibration_eligible": true,
+    "corruption_detected": false,
+    "fallback_used": false
   }
 }

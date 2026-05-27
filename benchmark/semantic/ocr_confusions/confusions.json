@@ -1,15 +1,21 @@
 {
   "dataset_name": "OCR Confusions Calibration Dataset",
-  "version": "1.1.0",
+  "version": "1.2.0",
+  "schema_version": "1.0.0",
   "confusions": [
-    { "input": "slt", "expected": "salt", "packaging_type": "flat" },
-    { "input": "msg", "expected": "monosodium glutamate", "packaging_type": "flat" },
-    { "input": "citricacd", "expected": "citric acid", "packaging_type": "tilted sachet" },
-    { "input": "insu621", "expected": "ins621", "packaging_type": "curved label" },
-    { "input": "veg oi1", "expected": "vegetable oil", "packaging_type": "cylindrical bottle" },
-    { "input": "citnc acid", "expected": "citric acid", "packaging_type": "reflective film" },
-    { "input": "e62i", "expected": "e621", "packaging_type": "low-light packaging" },
-    { "input": "INS 50O(ii)", "expected": "ins500(ii)", "packaging_type": "tilted sachet" },
-    { "input": "INS 500 ( II )", "expected": "ins500(ii)", "packaging_type": "cylindrical container" }
+    { "input": "slt", "expected": "salt", "packaging_type": "flat", "lighting": "standard", "surface": "flat", "blur": "none" },
+    { "input": "msg", "expected": "monosodium glutamate", "packaging_type": "flat", "lighting": "standard", "surface": "flat", "blur": "none" },
+    { "input": "citricacd", "expected": "citric acid", "packaging_type": "tilted sachet", "lighting": "standard", "surface": "flat", "blur": "moderate" },
+    { "input": "insu621", "expected": "ins621", "packaging_type": "curved label", "lighting": "standard", "surface": "curved", "blur": "none" },
+    { "input": "veg oi1", "expected": "vegetable oil", "packaging_type": "cylindrical bottle", "lighting": "reflective", "surface": "curved", "blur": "none" },
+    { "input": "citnc acid", "expected": "citric acid", "packaging_type": "reflective film", "lighting": "glare", "surface": "flat", "blur": "none" },
+    { "input": "e62i", "expected": "e621", "packaging_type": "low-light packaging", "lighting": "low_light", "surface": "flat", "blur": "none" },
+    { "input": "INS 50O(ii)", "expected": "ins500(ii)", "packaging_type": "tilted sachet", "lighting": "standard", "surface": "flat", "blur": "none" },
+    { "input": "INS 500 ( II )", "expected": "ins500(ii)", "packaging_type": "cylindrical container", "lighting": "standard", "surface": "curved", "blur": "none" },
+    { "input": "turmric", "expected": "turmeric", "packaging_type": "blurry packaging", "lighting": "standard", "surface": "flat", "blur": "high" },
+    { "input": "e62lll", "expected": "e621", "packaging_type": "low-light packaging", "lighting": "low_light", "surface": "flat", "blur": "moderate" },
+    { "input": "c1tric ac1d", "expected": "citric acid", "packaging_type": "reflective film", "lighting": "glare", "surface": "flat", "blur": "none" },
+    { "input": "s0dium carb", "expected": "sodium carbonate", "packaging_type": "partial occlusion", "lighting": "standard", "surface": "curved", "blur": "none" },
+    { "input": "potass1um", "expected": "potassium", "packaging_type": "blurry packaging", "lighting": "standard", "surface": "flat", "blur": "moderate" }
   ]
 }

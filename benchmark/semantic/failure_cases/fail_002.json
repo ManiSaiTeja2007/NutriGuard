@@ -1,0 +1,27 @@
+{
+  "case_id": "fail_002",
+  "schema_version": "1.0.0",
+  "description": "Curved reflective label printing msgggg. Replays as UNKNOWN/UNCERTAIN.",
+  "screenshot_path": "benchmark/semantic/failure_cases/fail_002.png",
+  "raw_ocr_output": "msgggg",
+  "replay_trace": [
+    "OCR: msgggg",
+    "Normalization: msgggg",
+    "Alias Repair: msgggg",
+    "Additive Resolution: None",
+    "Confidence Calibration: UNCERTAIN",
+    "Final Interpretation: Unknown Ingredient"
+  ],
+  "semantic_output": null,
+  "corrected_expectation": "monosodium glutamate",
+  "confidence_output": "UNCERTAIN",
+  "environment": {
+    "lighting": "reflective",
+    "surface": "curved",
+    "blur": "none"
+  },
+  "failure_analysis": {
+    "failure_type": "false_rejection",
+    "root_cause": "extreme OCR spelling corruption did not resolve within edit distance bounds"
+  }
+}

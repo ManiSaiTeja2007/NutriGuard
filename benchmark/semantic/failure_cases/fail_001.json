@@ -1,0 +1,27 @@
+{
+  "case_id": "fail_001",
+  "schema_version": "1.0.0",
+  "description": "Low-contrast tilted sachet printing INS 50O(ii) (letter O instead of zero). Replays as UNKNOWN/UNCERTAIN.",
+  "screenshot_path": "benchmark/semantic/failure_cases/fail_001.png",
+  "raw_ocr_output": "INS 50O(ii)",
+  "replay_trace": [
+    "OCR: INS 50O(ii)",
+    "Normalization: ins 50o(ii)",
+    "Alias Repair: ins 50o(ii)",
+    "Additive Resolution: None",
+    "Confidence Calibration: UNCERTAIN",
+    "Final Interpretation: Unknown Ingredient"
+  ],
+  "semantic_output": null,
+  "corrected_expectation": "ins500(ii)",
+  "confidence_output": "UNCERTAIN",
+  "environment": {
+    "lighting": "low_light",
+    "surface": "curved",
+    "blur": "moderate"
+  },
+  "failure_analysis": {
+    "failure_type": "false_rejection",
+    "root_cause": "OCR spelling confusion resolved to non-E-number form due to letter O instead of zero"
+  }
+}

@@ -201,5 +201,41 @@
     "category": "UNKNOWN",
     "additiveCode": null,
     "tags": []
+  },
+  {
+    "canonicalName": "cumin",
+    "aliases": ["jeera", "जीरा"],
+    "category": "UNKNOWN",
+    "additiveCode": null,
+    "tags": []
+  },
+  {
+    "canonicalName": "ginger",
+    "aliases": ["adrak", "अदरक"],
+    "category": "UNKNOWN",
+    "additiveCode": null,
+    "tags": []
+  },
+  {
+    "canonicalName": "garlic",
+    "aliases": ["lahsun", "लहसुन"],
+    "category": "UNKNOWN",
+    "additiveCode": null,
+    "tags": []
+  },
+  {
+    "canonicalName": "saffron",
+    "aliases": ["kesar", "केसर"],
+    "category": "UNKNOWN",
+    "additiveCode": null,
+    "tags": []
+  },
+  {
+    "canonicalName": "water",
+    "aliases": ["wasser"],
+    "category": "UNKNOWN",
+    "additiveCode": null,
+    "tags": []
   }
 ]
+

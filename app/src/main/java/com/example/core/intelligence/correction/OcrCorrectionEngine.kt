@@ -14,6 +14,8 @@ import com.example.core.intelligence.ontology.IngredientOntology
 import com.example.core.intelligence.parsing.PhraseNormalizer
 import com.example.core.intelligence.vocabulary.IngredientVocabulary
 import com.example.core.intelligence.context.ContextualSemanticScorer
+import com.example.core.intelligence.context.NeighborContext
+import com.example.core.intelligence.confidence.ConfidenceStep
 import com.example.core.intelligence.explanation.ExplanationHint
 import com.example.core.intelligence.explanation.ExplanationType
 import com.example.core.aliases.AliasRepairEngine
@@ -37,7 +39,9 @@ data class CorrectionResult(
     val additiveCode: String? = null,
     val explanation: String? = null,
     val warnings: List<String> = emptyList(),
-    val explanationHint: ExplanationHint? = null
+    val explanationHint: ExplanationHint? = null,
+    val confidenceStep: ConfidenceStep? = null,
+    val influencingTokens: List<String> = emptyList()
 ) {
     /** The original raw OCR token, extracted from the first debug step. */
     val originalToken: String
@@ -83,36 +87,34 @@ class OcrCorrectionEngine(
             additiveRatio = additiveRatio
         )
 
-        // Pre-pass: extract fast high-confidence categories and keywords from raw list
-        val contextCategories = mutableSetOf<String>()
-        val contextKeywords = mutableSetOf<String>()
-        tokens.forEach { token ->
-            val clean = token.lowercase(Locale.ROOT).trim()
-            val ontMatch = IngredientOntology.resolve(clean)
-            if (ontMatch != null) {
-                IngredientOntology.categoryOf(ontMatch)?.let { contextCategories.add(it) }
+        // First pass: correct each token independently with visual profile and neighboring contexts
+        val firstPass = tokens.mapIndexed { index, token ->
+            // Construct NeighborContext list for neighbors within window of 3 (excluding current index)
+            val neighbors = mutableListOf<NeighborContext>()
+            val start = maxOf(0, index - 3)
+            val end = minOf(tokens.size - 1, index + 3)
+            for (i in start..end) {
+                if (i == index) continue
+                val neighborToken = tokens[i].lowercase(Locale.ROOT).trim()
+                val distance = abs(i - index)
+                
+                // Try resolving category
+                var neighborCat = IngredientOntology.categoryOf(neighborToken)
+                if (neighborCat == null) {
+                    val ontMatch = IngredientOntology.resolve(neighborToken)
+                    if (ontMatch != null) {
+                        neighborCat = IngredientOntology.categoryOf(ontMatch)
+                    }
+                }
+                if (neighborCat == null) {
+                    val eNumber = ENumberEntry.find(neighborToken)
+                    if (eNumber != null) {
+                        neighborCat = eNumber.category.name.lowercase(Locale.ROOT)
+                    }
+                }
+                neighbors.add(NeighborContext(token = tokens[i], category = neighborCat, distance = distance))
             }
-            val eNumber = ENumberEntry.find(clean)
-            if (eNumber != null) {
-                contextCategories.add(eNumber.category.name.lowercase(Locale.ROOT))
-            }
-            if (clean.contains("acidity regulator") || clean.contains("acid")) {
-                contextKeywords.add("acidity_regulator")
-            }
-            if (clean.contains("preservative")) {
-                contextKeywords.add("preservative")
-            }
-            if (clean.contains("color") || clean.contains("colour")) {
-                contextKeywords.add("color")
-            }
-            if (clean.contains("sweetener")) {
-                contextKeywords.add("sweetener")
-            }
-        }
-
-        // First pass: correct each token independently with the visual profile and context
-        val firstPass = tokens.map { token ->
-            correctSingle(token, metadata, groupPath, profile, contextCategories, contextKeywords)
+            correctSingle(token, metadata, groupPath, profile, neighbors)
         }
 
         // Second pass: contextual disambiguation
@@ -147,13 +149,26 @@ class OcrCorrectionEngine(
                         reconstructedText = disambig.resolvedForm,
                         reason = "Resolved ambiguity using surrounding ingredients"
                     )
+                    
+                    val influencing = preceding + following
+                    val disambigStep = ConfidenceStep(
+                        baseConfidence = result.confidence,
+                        contextBonus = 0.80f - result.confidence,
+                        finalConfidence = 0.80f,
+                        reason = "Contextual disambiguation: ${disambig.ruleId}",
+                        influencingTokens = influencing
+                    )
+
                     result.copy(
                         canonical = disambig.resolvedForm,
+                        confidence = 0.80f,
                         failures = result.failures.filter { it != FailureType.AMBIGUOUS_MATCH_FAILURE },
                         debugSteps = newSteps,
                         ontologyCategory = category ?: result.ontologyCategory,
                         disambiguationRule = disambig.ruleId,
-                        explanationHint = hint
+                        explanationHint = hint,
+                        confidenceStep = disambigStep,
+                        influencingTokens = influencing
                     )
                 } else if (disambig.failed) {
                     val newFailures = result.failures.toMutableList()
@@ -177,8 +192,7 @@ class OcrCorrectionEngine(
         metadata: OcrMetadata,
         groupPath: String,
         profile: ConfidenceCalibrationEngine.CalibrationProfile,
-        contextCategories: Set<String> = emptySet(),
-        contextKeywords: Set<String> = emptySet()
+        neighbors: List<NeighborContext>
     ): CorrectionResult {
         val debugSteps = mutableListOf<String>()
         val failures = mutableListOf<FailureType>()
@@ -216,6 +230,13 @@ class OcrCorrectionEngine(
                     reconstructedText = ontologyTarget
                 )
             }
+            val confidenceStep = ConfidenceStep(
+                baseConfidence = 1.0f,
+                contextBonus = 0.0f,
+                finalConfidence = 1.0f,
+                reason = null,
+                influencingTokens = emptyList()
+            )
             return CorrectionResult(
                 canonical = ontologyTarget,
                 confidence = 1.0f,
@@ -223,7 +244,9 @@ class OcrCorrectionEngine(
                 debugSteps = debugSteps,
                 ontologyCategory = category,
                 groupPath = groupPath,
-                explanationHint = hint
+                explanationHint = hint,
+                confidenceStep = confidenceStep,
+                influencingTokens = emptyList()
             )
         }
 
@@ -241,14 +264,24 @@ class OcrCorrectionEngine(
                 originalText = token,
                 reconstructedText = eNumberRepair.canonicalName
             )
+            val expectedConf = if (eNumberRepair.isRepaired) 0.90f else 1.0f
+            val confidenceStep = ConfidenceStep(
+                baseConfidence = expectedConf,
+                contextBonus = 0.0f,
+                finalConfidence = expectedConf,
+                reason = null,
+                influencingTokens = emptyList()
+            )
             return CorrectionResult(
                 canonical = eNumberRepair.canonicalName,
-                confidence = if (eNumberRepair.isRepaired) 0.90f else 1.0f,
+                confidence = expectedConf,
                 failures = failures,
                 debugSteps = debugSteps,
                 ontologyCategory = category,
                 groupPath = groupPath,
-                explanationHint = hint
+                explanationHint = hint,
+                confidenceStep = confidenceStep,
+                influencingTokens = emptyList()
             )
         }
 
@@ -288,6 +321,13 @@ class OcrCorrectionEngine(
                 originalText = token,
                 reconstructedText = topHit.candidate
             )
+            val confidenceStep = ConfidenceStep(
+                baseConfidence = topHit.confidence,
+                contextBonus = 0.0f,
+                finalConfidence = topHit.confidence,
+                reason = null,
+                influencingTokens = emptyList()
+            )
             return CorrectionResult(
                 canonical = topHit.candidate,
                 confidence = topHit.confidence,
@@ -295,7 +335,9 @@ class OcrCorrectionEngine(
                 debugSteps = debugSteps,
                 ontologyCategory = IngredientOntology.categoryOf(topHit.candidate),
                 groupPath = groupPath,
-                explanationHint = hint
+                explanationHint = hint,
+                confidenceStep = confidenceStep,
+                influencingTokens = emptyList()
             )
         }
 
@@ -329,8 +371,7 @@ class OcrCorrectionEngine(
                 val scorerResult = ContextualSemanticScorer.scoreCandidate(
                     candidate = candidate,
                     baseConfidence = finalConf,
-                    contextCategories = contextCategories,
-                    contextKeywords = contextKeywords
+                    neighbors = neighbors
                 )
                 
                 fuzzyCandidates.add(
@@ -339,7 +380,9 @@ class OcrCorrectionEngine(
                         confidence = scorerResult.finalConfidence,
                         distance = distance,
                         contextBonus = scorerResult.bonusApplied,
-                        contextReason = scorerResult.reason
+                        contextReason = scorerResult.reason,
+                        baseConfidence = finalConf,
+                        influencingTokens = scorerResult.influencingTokens
                     )
                 )
             }
@@ -355,13 +398,22 @@ class OcrCorrectionEngine(
                 originalText = token,
                 reconstructedText = phraseNorm
             )
+            val confidenceStep = ConfidenceStep(
+                baseConfidence = 0.5f,
+                contextBonus = 0.0f,
+                finalConfidence = 0.5f,
+                reason = null,
+                influencingTokens = emptyList()
+            )
             return CorrectionResult(
                 canonical = phraseNorm,
                 confidence = 0.5f,
                 failures = failures,
                 debugSteps = debugSteps,
                 groupPath = groupPath,
-                explanationHint = hint
+                explanationHint = hint,
+                confidenceStep = confidenceStep,
+                influencingTokens = emptyList()
             )
         }
 
@@ -387,41 +439,63 @@ class OcrCorrectionEngine(
                 originalText = token,
                 reconstructedText = phraseNorm
             )
+            val confidenceStep = ConfidenceStep(
+                baseConfidence = 0.6f,
+                contextBonus = 0.0f,
+                finalConfidence = 0.6f,
+                reason = null,
+                influencingTokens = emptyList()
+            )
             return CorrectionResult(
                 canonical = phraseNorm,
                 confidence = 0.6f,
                 failures = failures,
                 debugSteps = debugSteps,
                 groupPath = groupPath,
-                explanationHint = hint
+                explanationHint = hint,
+                confidenceStep = confidenceStep,
+                influencingTokens = emptyList()
             )
         }
 
         // 2. Safeguard: Low confidence threshold check
         val finalConfidence = bestCandidate.confidence
-        if (finalConfidence < profile.minimumConfidenceThreshold) {
+        val baseConf = bestCandidate.baseConfidence
+
+        // Strictly prevent contextual bonus from bypassing the LOW confidence safeguard limit (0.70f)
+        if (finalConfidence < profile.minimumConfidenceThreshold || baseConf < 0.70f) {
             failures.add(FailureType.FALSE_CORRECTION_RISK_FAILURE)
-            debugSteps.add("safeguard triggered: preserved raw token \"$phraseNorm\" due to low match confidence (${"%.2f".format(finalConfidence)} < ${profile.minimumConfidenceThreshold})")
+            debugSteps.add("safeguard triggered: preserved raw token \"$phraseNorm\" due to low match confidence (${"%.2f".format(baseConf)} < threshold)")
             debugSteps.add("rejected candidate: \"${bestCandidate.candidate}\"")
             val hint = ExplanationHint(
                 type = ExplanationType.NO_CHANGES,
                 originalText = token,
                 reconstructedText = phraseNorm
             )
+            val confidenceStep = ConfidenceStep(
+                baseConfidence = baseConf,
+                contextBonus = bestCandidate.contextBonus,
+                finalConfidence = finalConfidence,
+                reason = "Safeguard triggered (base confidence too low)",
+                influencingTokens = bestCandidate.influencingTokens
+            )
             return CorrectionResult(
                 canonical = phraseNorm,
-                confidence = finalConfidence,
+                confidence = baseConf,
                 failures = failures,
                 debugSteps = debugSteps,
                 groupPath = groupPath,
-                explanationHint = hint
+                explanationHint = hint,
+                confidenceStep = confidenceStep,
+                influencingTokens = bestCandidate.influencingTokens
             )
         }
 
         // Explainable Trace Formatting: candidate, baseConfidence, contextBonus, reason, finalConfidence
-        val baseConf = finalConfidence - bestCandidate.contextBonus
+        debugSteps.add("base confidence: ${"%.2f".format(baseConf)}")
         if (bestCandidate.contextBonus > 0.0f) {
-            debugSteps.add("context bonus applied: baseConfidence=${"%.2f".format(baseConf)}, bonus=${"%.2f".format(bestCandidate.contextBonus)}, reason=${bestCandidate.contextReason ?: "none"}")
+            debugSteps.add("contextual bonus: ${"%.2f".format(bestCandidate.contextBonus)}")
+            debugSteps.add("contextual reason: ${bestCandidate.contextReason ?: "none"}")
         }
         debugSteps.add("accepted candidate: \"${bestCandidate.candidate}\"")
         debugSteps.add("distance: ${bestCandidate.distance}")
@@ -445,6 +519,14 @@ class OcrCorrectionEngine(
             )
         }
 
+        val confidenceStep = ConfidenceStep(
+            baseConfidence = baseConf,
+            contextBonus = bestCandidate.contextBonus,
+            finalConfidence = finalConfidence,
+            reason = bestCandidate.contextReason,
+            influencingTokens = bestCandidate.influencingTokens
+        )
+
         return CorrectionResult(
             canonical = bestCandidate.candidate,
             confidence = finalConfidence,
@@ -452,7 +534,9 @@ class OcrCorrectionEngine(
             debugSteps = debugSteps,
             ontologyCategory = category,
             groupPath = groupPath,
-            explanationHint = hint
+            explanationHint = hint,
+            confidenceStep = confidenceStep,
+            influencingTokens = bestCandidate.influencingTokens
         )
     }
 }

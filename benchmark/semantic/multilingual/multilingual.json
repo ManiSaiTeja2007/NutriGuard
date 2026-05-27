@@ -1,20 +1,48 @@
 {
   "dataset_name": "Multilingual Calibration Dataset",
-  "version": "1.1.0",
+  "version": "1.2.0",
+  "schema_version": "1.0.0",
   "languages": {
     "hi": [
-      { "text": "हल्दी", "language": "hi", "transliteration": "haldi", "expected_canonical": "turmeric" },
-      { "text": "नमक", "language": "hi", "transliteration": "namak", "expected_canonical": "salt" },
-      { "text": "दही", "language": "hi", "transliteration": "dahi", "expected_canonical": "yogurt" }
+      { "text": "हल्दी", "language": "hi", "script": "Devanagari", "transliteration": "haldi", "expected_canonical": "turmeric" },
+      { "text": "नमक", "language": "hi", "script": "Devanagari", "transliteration": "namak", "expected_canonical": "salt" },
+      { "text": "दही", "language": "hi", "script": "Devanagari", "transliteration": "dahi", "expected_canonical": "yogurt" },
+      { "text": "जीरा", "language": "hi", "script": "Devanagari", "transliteration": "jeera", "expected_canonical": "cumin" },
+      { "text": "अदरक", "language": "hi", "script": "Devanagari", "transliteration": "adrak", "expected_canonical": "ginger" },
+      { "text": "लहसुन", "language": "hi", "script": "Devanagari", "transliteration": "lahsun", "expected_canonical": "garlic" },
+      { "text": "केसर", "language": "hi", "script": "Devanagari", "transliteration": "kesar", "expected_canonical": "saffron" }
     ],
     "de": [
-      { "text": "wasser", "language": "de", "transliteration": "wasser", "expected_canonical": "water" }
+      { "text": "wasser", "language": "de", "script": "Latin", "transliteration": "wasser", "expected_canonical": "water" }
     ]
   },
   "mixed_labels": [
     {
       "input": "salt, haldi, spices",
-      "expected_canonical": ["salt", "turmeric", "spices"]
+      "expected_canonical": ["salt", "turmeric", "spices"],
+      "segments": [
+        { "text": "salt", "language": "en" },
+        { "text": "हल्दी", "language": "hi", "script": "Devanagari", "transliteration": "haldi" },
+        { "text": "spices", "language": "en" }
+      ]
+    },
+    {
+      "input": "namak, sugar, flavors",
+      "expected_canonical": ["salt", "sugar", "flavors"],
+      "segments": [
+        { "text": "नमक", "language": "hi", "script": "Devanagari", "transliteration": "namak" },
+        { "text": "sugar", "language": "en" },
+        { "text": "flavors", "language": "en" }
+      ]
+    },
+    {
+      "input": "jeera, haldi, salt",
+      "expected_canonical": ["cumin", "turmeric", "salt"],
+      "segments": [
+        { "text": "जीरा", "language": "hi", "script": "Devanagari", "transliteration": "jeera" },
+        { "text": "हल्दी", "language": "hi", "script": "Devanagari", "transliteration": "haldi" },
+        { "text": "salt", "language": "en" }
+      ]
     }
   ]
 }

@@ -15,7 +15,10 @@ import com.example.core.intelligence.vocabulary.IngredientVocabulary
 import com.example.core.intelligence.correction.FailureType
 import com.example.core.intelligence.correction.OcrMetadata
 import com.example.core.intelligence.IngredientInterpreter
+import com.example.core.intelligence.explanation.ExplanationType
+import com.example.core.intelligence.confidence.DatasetProvenance
 import com.example.core.replay.ReplayStorageHelper
+
 import com.example.data.AppSettings
 import com.example.core.config.FeatureFlags
 import com.example.ui.navigation.NavController
@@ -239,14 +242,28 @@ class ScanViewModel : ViewModel() {
                     put("disambiguationRule", result.disambiguationRule ?: "")
                     put("groupPath", result.groupPath)
 
+                    val contextualReconstructionText = if (result.confidenceStep != null) {
+                        if (result.confidenceStep.contextBonus > 0.0f) result.canonical else null
+                    } else {
+                        if (result.explanationHint?.type == ExplanationType.CONTEXTUAL_RECONSTRUCTION) result.canonical else null
+                    }
+                    val baseConfidence = result.confidenceStep?.baseConfidence ?: result.confidence
+
                     val interpretation = IngredientInterpreter.interpret(
                         canonicalName = result.canonical,
                         confidence = result.confidence,
-                        originalToken = result.originalToken
+                        originalToken = result.originalToken,
+                        contextualReconstructionText = contextualReconstructionText,
+                        baseConfidence = baseConfidence,
+                        provenance = DatasetProvenance.REAL_WORLD,
+                        calibrationEligible = true
                     )
                     put("interpretedCategory", interpretation.category.name)
                     put("additiveCode", interpretation.additiveCode ?: "")
                     put("explanation", interpretation.explanation ?: "")
+                    put("provenance", interpretation.provenance.name)
+                    put("calibrationEligible", interpretation.calibrationEligible)
+
 
                     val warningsArr = JSONArray()
                     interpretation.warnings.forEach { warningsArr.put(it) }
@@ -263,6 +280,21 @@ class ScanViewModel : ViewModel() {
                     val phraseArr = JSONArray()
                     result.phraseWindow.forEach { phraseArr.put(it) }
                     put("phraseWindow", phraseArr)
+
+                    if (result.confidenceStep != null) {
+                        put("confidenceStep", JSONObject().apply {
+                            put("baseConfidence", result.confidenceStep.baseConfidence.toDouble())
+                            put("contextBonus", result.confidenceStep.contextBonus.toDouble())
+                            put("finalConfidence", result.confidenceStep.finalConfidence.toDouble())
+                            put("reason", result.confidenceStep.reason ?: "")
+                            val infTokensArr = JSONArray()
+                            result.confidenceStep.influencingTokens.forEach { infTokensArr.put(it) }
+                            put("influencingTokens", infTokensArr)
+                        })
+                    }
+                    val infArr = JSONArray()
+                    result.influencingTokens.forEach { infArr.put(it) }
+                    put("influencingTokens", infArr)
 
                     if (result.explanationHint != null) {
                         put("explanationHint", JSONObject().apply {
@@ -354,10 +386,19 @@ class ScanViewModel : ViewModel() {
 
         // Create the PipelineResult & PipelineSnapshot to cache in repository
         val semanticIngredients = ingestionResult.correction.output.map { result ->
+            val contextualReconstructionText = if (result.confidenceStep != null) {
+                if (result.confidenceStep.contextBonus > 0.0f) result.canonical else null
+            } else {
+                if (result.explanationHint?.type == ExplanationType.CONTEXTUAL_RECONSTRUCTION) result.canonical else null
+            }
+            val baseConfidence = result.confidenceStep?.baseConfidence ?: result.confidence
+
             val interpretation = IngredientInterpreter.interpret(
                 canonicalName = result.canonical,
                 confidence = result.confidence,
-                originalToken = result.originalToken
+                originalToken = result.originalToken,
+                contextualReconstructionText = contextualReconstructionText,
+                baseConfidence = baseConfidence
             )
             com.example.core.pipeline.SemanticIngredient(
                 canonical = result.canonical,
@@ -377,10 +418,16 @@ class ScanViewModel : ViewModel() {
         }
 
         val interpretedIngredients = semanticIngredients.map { ing ->
+            val baseConfLine = ing.debugSteps.firstOrNull { it.startsWith("base confidence:") }
+            val baseConfidence = baseConfLine?.substringAfter("base confidence:")?.trim()?.toFloatOrNull() ?: ing.confidence
+            val contextualReconstructionText = if (ing.disambiguationRule != null || ing.debugSteps.any { it.contains("contextual bonus:") }) ing.canonical else null
+
             IngredientInterpreter.interpret(
                 canonicalName = ing.canonical,
                 confidence = ing.confidence,
-                originalToken = ing.originalToken
+                originalToken = ing.originalToken,
+                contextualReconstructionText = contextualReconstructionText,
+                baseConfidence = baseConfidence
             )
         }
 

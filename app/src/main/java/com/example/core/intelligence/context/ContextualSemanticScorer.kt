@@ -32,16 +32,83 @@ object ContextualSemanticScorer {
     data class ScorerResult(
         val finalConfidence: Float,
         val bonusApplied: Float,
-        val reason: String?
+        val reason: String?,
+        val influencingTokens: List<String> = emptyList()
     )
 
     /**
-     * Scores a candidate based on surrounding category and keyword contexts.
-     *
-     * @param candidate      The canonical candidate term to evaluate.
-     * @param baseConfidence The base fuzzy matching confidence score.
-     * @param contextCategories Set of active categories resolved in the neighborhood window.
-     * @param contextKeywords Set of category/additive naming keywords in the neighborhood.
+     * Scores a candidate based on NeighborContext with distance decay weighting.
+     */
+    fun scoreCandidate(
+        candidate: String,
+        baseConfidence: Float,
+        neighbors: List<NeighborContext>
+    ): ScorerResult {
+        val cleanCandidate = candidate.lowercase(Locale.ROOT).trim()
+        val category = IngredientOntology.categoryOf(cleanCandidate)
+
+        var bonus = 0.0f
+        val reasons = mutableListOf<String>()
+        val influencing = mutableListOf<String>()
+
+        if (category != null) {
+            for (neighbor in neighbors) {
+                // Decay context bonus as neighbor distance increases
+                val weight = 1.0f / neighbor.distance.coerceAtLeast(1)
+                
+                // 1. Same ontology category bonus
+                if (neighbor.category == category) {
+                    val partBonus = sameCategoryBonus * weight
+                    bonus += partBonus
+                    reasons.add("neighbor category: $category")
+                    influencing.add(neighbor.token)
+                } 
+                // 2. Keyword context bonus
+                else {
+                    val matchingKeywords = listOf("acidity_regulator", "preservative", "color", "colour", "sweetener")
+                    val matchingKeyword = matchingKeywords.firstOrNull { kw ->
+                        val cleanCat = neighbor.category ?: ""
+                        cleanCat.startsWith(kw) || kw.startsWith(cleanCat) ||
+                        cleanCat.replace("_", " ").contains(kw) || kw.contains(cleanCat.replace("_", " ")) ||
+                        neighbor.token.lowercase(Locale.ROOT).contains(kw.replace("_", " "))
+                    }
+                    if (matchingKeyword != null) {
+                        val partBonus = sameCategoryBonus * weight
+                        bonus += partBonus
+                        reasons.add("neighbor keyword match: $matchingKeyword")
+                        influencing.add(neighbor.token)
+                    }
+                }
+            }
+        }
+
+        // 3. Additive proximity bonus (if the candidate is an E-number or resolved additive, and is near other additives)
+        val isAdditive = cleanCandidate.startsWith("e") && cleanCandidate.substring(1).all { it.isDigit() || it == '(' || it == ')' || it == 'i' || it == 'v' }
+        if (isAdditive) {
+            val neighborAdditives = neighbors.filter { n ->
+                val cleanN = n.token.lowercase(Locale.ROOT).trim()
+                cleanN.startsWith("e") && cleanN.substring(1).all { it.isDigit() || it == '(' || it == ')' || it == 'i' || it == 'v' }
+            }
+            for (neighbor in neighborAdditives) {
+                val weight = 1.0f / neighbor.distance.coerceAtLeast(1)
+                val partBonus = additiveNeighborBonus * weight
+                bonus += partBonus
+                reasons.add("additive proximity bonus")
+                influencing.add(neighbor.token)
+            }
+        }
+
+        val finalConf = (baseConfidence + bonus).coerceIn(0.0f, 1.0f)
+        return ScorerResult(
+            finalConfidence = finalConf,
+            bonusApplied = bonus,
+            reason = if (reasons.isEmpty()) null else reasons.joinToString(" + "),
+            influencingTokens = influencing
+        )
+    }
+
+    /**
+     * Backward-compatible helper that maps sets to flat lists of NeighborContexts with distance = 1.
      */
     fun scoreCandidate(
         candidate: String,
@@ -49,45 +116,13 @@ object ContextualSemanticScorer {
         contextCategories: Set<String>,
         contextKeywords: Set<String>
     ): ScorerResult {
-        val cleanCandidate = candidate.lowercase(Locale.ROOT).trim()
-        val category = IngredientOntology.categoryOf(cleanCandidate)
-
-        var bonus = 0.0f
-        var reason: String? = null
-
-        if (category != null) {
-            // 1. Same ontology category bonus (e.g. if candidate is citric acid, and neighbor category is acidity_regulator)
-            if (contextCategories.contains(category)) {
-                bonus += sameCategoryBonus
-                reason = "neighbor category: $category"
-            }
-            // 2. Keyword context bonus (e.g. if neighbor token is "preservative", and candidate is a preservative)
-            else {
-                val matchingKeyword = contextKeywords.firstOrNull { kw ->
-                    category.startsWith(kw) || kw.startsWith(category) ||
-                    category.replace("_", " ").contains(kw) || kw.contains(category.replace("_", " "))
-                }
-                if (matchingKeyword != null) {
-                    bonus += sameCategoryBonus
-                    reason = "neighbor keyword match: $matchingKeyword"
-                }
-            }
+        val neighbors = mutableListOf<NeighborContext>()
+        contextCategories.forEach { cat ->
+            neighbors.add(NeighborContext(token = cat, category = cat, distance = 1))
         }
-
-        // 3. Additive proximity bonus (if the candidate is an E-number or resolved additive, and is near other additives)
-        val isAdditive = cleanCandidate.startsWith("e") && cleanCandidate.substring(1).all { it.isDigit() || it == '(' || it == ')' || it == 'i' || it == 'v' }
-        if (isAdditive && contextCategories.contains("acidity_regulator")) {
-            bonus += additiveNeighborBonus
-            reason = (reason?.let { "$it + " } ?: "") + "additive proximity bonus"
+        contextKeywords.forEach { kw ->
+            neighbors.add(NeighborContext(token = kw, category = kw, distance = 1))
         }
-
-        // Contextual scoring must never override semantic safeguards by forcing HIGH confidence
-        // Cap the final confidence appropriately or let it assist ranking/resolution safely.
-        val finalConf = (baseConfidence + bonus).coerceIn(0.0f, 1.0f)
-        return ScorerResult(
-            finalConfidence = finalConf,
-            bonusApplied = bonus,
-            reason = reason
-        )
+        return scoreCandidate(candidate, baseConfidence, neighbors)
     }
 }

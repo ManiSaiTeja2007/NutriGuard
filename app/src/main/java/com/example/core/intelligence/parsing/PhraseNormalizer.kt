@@ -59,12 +59,20 @@ object PhraseNormalizer {
             result = dehyphenated
         }
 
-        // 2. Strip parenthetical category labels (single-word only — e.g. "(preservative)")
-        val stripped = result.replace(Regex("\\s*\\(\\s*[a-z]+\\s*\\)\\s*$"), "").trim()
+        // 2. Strip parenthetical category labels (single-word only — e.g. "(preservative)"), but preserve roman numeral suffixes (i, ii, etc.)
+        val stripped = if (result.endsWith("(i)") || result.endsWith("(ii)") || result.endsWith("(iii)") || result.endsWith("(iv)") || result.endsWith("(v)") ||
+                           result.replace(" ", "").endsWith("(i)") || result.replace(" ", "").endsWith("(ii)") ||
+                           result.replace(" ", "").endsWith("(iii)") || result.replace(" ", "").endsWith("(iv)") ||
+                           result.replace(" ", "").endsWith("(v)")) {
+            result
+        } else {
+            result.replace(Regex("\\s*\\(\\s*[a-z]+\\s*\\)\\s*$"), "").trim()
+        }
         if (stripped != result) {
             trace.add("stripped parenthetical label: \"$stripped\"")
             result = stripped
         }
+
 
         // 3. Repair split-compound OCR fragments
         val repaired = splitCompoundRepairs[result]

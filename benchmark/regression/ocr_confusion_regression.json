@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "test_name": "OCR Confusion Regression",
+  "test_cases": [
+    { "input": "slt", "expected": "salt" },
+    { "input": "msg", "expected": "monosodium glutamate" },
+    { "input": "citricacd", "expected": "citric acid" },
+    { "input": "insu621", "expected": "e621" },
+    { "input": "veg oi1", "expected": "vegetable oil" },
+    { "input": "citnc acid", "expected": "citric acid" },
+    { "input": "e62i", "expected": "monosodium glutamate" },
+    { "input": "INS 50O(ii)", "expected": "e500(ii)" },
+    { "input": "INS 500 ( II )", "expected": "e500(ii)" },
+
+    { "input": "turmric", "expected": "turmeric" },
+    { "input": "e62lll", "expected": "e621" },
+    { "input": "c1tric ac1d", "expected": "citric acid" },
+    { "input": "s0dium carb", "expected": "sodium carbonate" },
+    { "input": "potass1um", "expected": "potassium" }
+  ]
+}
