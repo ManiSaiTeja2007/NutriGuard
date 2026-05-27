@@ -13,6 +13,10 @@ import com.example.core.intelligence.fuzzy.MatchConfidence
 import com.example.core.intelligence.ontology.IngredientOntology
 import com.example.core.intelligence.parsing.PhraseNormalizer
 import com.example.core.intelligence.vocabulary.IngredientVocabulary
+import com.example.core.intelligence.context.ContextualSemanticScorer
+import com.example.core.intelligence.explanation.ExplanationHint
+import com.example.core.intelligence.explanation.ExplanationType
+import com.example.core.aliases.AliasRepairEngine
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
@@ -32,7 +36,8 @@ data class CorrectionResult(
     val interpretedCategory: String? = null,
     val additiveCode: String? = null,
     val explanation: String? = null,
-    val warnings: List<String> = emptyList()
+    val warnings: List<String> = emptyList(),
+    val explanationHint: ExplanationHint? = null
 ) {
     /** The original raw OCR token, extracted from the first debug step. */
     val originalToken: String
@@ -78,9 +83,36 @@ class OcrCorrectionEngine(
             additiveRatio = additiveRatio
         )
 
-        // First pass: correct each token independently with the visual profile
+        // Pre-pass: extract fast high-confidence categories and keywords from raw list
+        val contextCategories = mutableSetOf<String>()
+        val contextKeywords = mutableSetOf<String>()
+        tokens.forEach { token ->
+            val clean = token.lowercase(Locale.ROOT).trim()
+            val ontMatch = IngredientOntology.resolve(clean)
+            if (ontMatch != null) {
+                IngredientOntology.categoryOf(ontMatch)?.let { contextCategories.add(it) }
+            }
+            val eNumber = ENumberEntry.find(clean)
+            if (eNumber != null) {
+                contextCategories.add(eNumber.category.name.lowercase(Locale.ROOT))
+            }
+            if (clean.contains("acidity regulator") || clean.contains("acid")) {
+                contextKeywords.add("acidity_regulator")
+            }
+            if (clean.contains("preservative")) {
+                contextKeywords.add("preservative")
+            }
+            if (clean.contains("color") || clean.contains("colour")) {
+                contextKeywords.add("color")
+            }
+            if (clean.contains("sweetener")) {
+                contextKeywords.add("sweetener")
+            }
+        }
+
+        // First pass: correct each token independently with the visual profile and context
         val firstPass = tokens.map { token ->
-            correctSingle(token, metadata, groupPath, profile)
+            correctSingle(token, metadata, groupPath, profile, contextCategories, contextKeywords)
         }
 
         // Second pass: contextual disambiguation
@@ -109,12 +141,19 @@ class OcrCorrectionEngine(
                     newSteps.add("disambiguation: \"${disambig.resolvedForm}\" via rule ${disambig.ruleId}")
                     newSteps.add("canonicalized: ${disambig.resolvedForm}")
                     val category = IngredientOntology.categoryOf(disambig.resolvedForm)
+                    val hint = ExplanationHint(
+                        type = ExplanationType.CONTEXTUAL_RECONSTRUCTION,
+                        originalText = result.originalToken,
+                        reconstructedText = disambig.resolvedForm,
+                        reason = "Resolved ambiguity using surrounding ingredients"
+                    )
                     result.copy(
                         canonical = disambig.resolvedForm,
                         failures = result.failures.filter { it != FailureType.AMBIGUOUS_MATCH_FAILURE },
                         debugSteps = newSteps,
                         ontologyCategory = category ?: result.ontologyCategory,
-                        disambiguationRule = disambig.ruleId
+                        disambiguationRule = disambig.ruleId,
+                        explanationHint = hint
                     )
                 } else if (disambig.failed) {
                     val newFailures = result.failures.toMutableList()
@@ -137,7 +176,9 @@ class OcrCorrectionEngine(
         token: String,
         metadata: OcrMetadata,
         groupPath: String,
-        profile: ConfidenceCalibrationEngine.CalibrationProfile
+        profile: ConfidenceCalibrationEngine.CalibrationProfile,
+        contextCategories: Set<String> = emptySet(),
+        contextKeywords: Set<String> = emptySet()
     ): CorrectionResult {
         val debugSteps = mutableListOf<String>()
         val failures = mutableListOf<FailureType>()
@@ -160,13 +201,29 @@ class OcrCorrectionEngine(
             val category = IngredientOntology.categoryOf(ontologyTarget)
             debugSteps.add("ontology hit: \"$ontologyTarget\"${if (category != null) " [category: $category]" else ""}")
             debugSteps.add("canonicalized: $ontologyTarget")
+            val hint = if (phraseNorm != ontologyTarget) {
+                val repairResult = AliasRepairEngine.repair(phraseNorm)
+                val type = if (repairResult.isTransliteration) ExplanationType.TRANSLITERATION else ExplanationType.ALIAS_RESOLUTION
+                ExplanationHint(
+                    type = type,
+                    originalText = token,
+                    reconstructedText = ontologyTarget
+                )
+            } else {
+                ExplanationHint(
+                    type = ExplanationType.NO_CHANGES,
+                    originalText = token,
+                    reconstructedText = ontologyTarget
+                )
+            }
             return CorrectionResult(
                 canonical = ontologyTarget,
                 confidence = 1.0f,
                 failures = emptyList(),
                 debugSteps = debugSteps,
                 ontologyCategory = category,
-                groupPath = groupPath
+                groupPath = groupPath,
+                explanationHint = hint
             )
         }
 
@@ -179,13 +236,19 @@ class OcrCorrectionEngine(
                 failures.add(FailureType.ADDITIVE_NOTATION_FAILURE)
             }
             debugSteps.add("canonicalized: ${eNumberRepair.canonicalName}")
+            val hint = ExplanationHint(
+                type = ExplanationType.ADDITIVE_STANDARDIZATION,
+                originalText = token,
+                reconstructedText = eNumberRepair.canonicalName
+            )
             return CorrectionResult(
                 canonical = eNumberRepair.canonicalName,
                 confidence = if (eNumberRepair.isRepaired) 0.90f else 1.0f,
                 failures = failures,
                 debugSteps = debugSteps,
                 ontologyCategory = category,
-                groupPath = groupPath
+                groupPath = groupPath,
+                explanationHint = hint
             )
         }
 
@@ -220,13 +283,19 @@ class OcrCorrectionEngine(
             failures.add(FailureType.OCR_AMBIGUITY_FAILURE)
             debugSteps.add("ocr ambiguity resolved: \"${topHit.candidate}\" (confidence: ${"%.2f".format(topHit.confidence)})")
             debugSteps.add("canonicalized: ${topHit.candidate}")
+            val hint = ExplanationHint(
+                type = ExplanationType.SPELLING_CORRECTION,
+                originalText = token,
+                reconstructedText = topHit.candidate
+            )
             return CorrectionResult(
                 canonical = topHit.candidate,
                 confidence = topHit.confidence,
                 failures = failures,
                 debugSteps = debugSteps,
                 ontologyCategory = IngredientOntology.categoryOf(topHit.candidate),
-                groupPath = groupPath
+                groupPath = groupPath,
+                explanationHint = hint
             )
         }
 
@@ -255,7 +324,24 @@ class OcrCorrectionEngine(
                     isOntologyMapping = false
                 )
                 val finalConf = MatchConfidence.calculateFuzzyConfidence(phraseNorm, candidate, distance, context)
-                fuzzyCandidates.add(MatchCandidate(candidate, finalConf, distance))
+                
+                // --- CONTEXTUAL RECONSTRUCTION SCORING ---
+                val scorerResult = ContextualSemanticScorer.scoreCandidate(
+                    candidate = candidate,
+                    baseConfidence = finalConf,
+                    contextCategories = contextCategories,
+                    contextKeywords = contextKeywords
+                )
+                
+                fuzzyCandidates.add(
+                    MatchCandidate(
+                        candidate = candidate,
+                        confidence = scorerResult.finalConfidence,
+                        distance = distance,
+                        contextBonus = scorerResult.bonusApplied,
+                        contextReason = scorerResult.reason
+                    )
+                )
             }
         }
         fuzzyCandidates.sortByDescending { it.confidence }
@@ -264,12 +350,18 @@ class OcrCorrectionEngine(
             debugSteps.add("candidate: none")
             debugSteps.add("rejection reason: no fuzzy candidates within max edit distance $maxAllowedDistance")
             failures.add(FailureType.UNKNOWN_INGREDIENT_FAILURE)
+            val hint = ExplanationHint(
+                type = ExplanationType.NO_CHANGES,
+                originalText = token,
+                reconstructedText = phraseNorm
+            )
             return CorrectionResult(
                 canonical = phraseNorm,
                 confidence = 0.5f,
                 failures = failures,
                 debugSteps = debugSteps,
-                groupPath = groupPath
+                groupPath = groupPath,
+                explanationHint = hint
             )
         }
 
@@ -290,12 +382,18 @@ class OcrCorrectionEngine(
             failures.add(FailureType.FALSE_CORRECTION_RISK_FAILURE)
             debugSteps.add("safeguard triggered: preserved raw token \"$phraseNorm\" due to high ambiguity (allowAmbiguousCorrection is false)")
             debugSteps.add("rejected candidates: ${fuzzyCandidates.take(3).map { it.candidate }}")
+            val hint = ExplanationHint(
+                type = ExplanationType.NO_CHANGES,
+                originalText = token,
+                reconstructedText = phraseNorm
+            )
             return CorrectionResult(
                 canonical = phraseNorm,
                 confidence = 0.6f,
                 failures = failures,
                 debugSteps = debugSteps,
-                groupPath = groupPath
+                groupPath = groupPath,
+                explanationHint = hint
             )
         }
 
@@ -305,15 +403,26 @@ class OcrCorrectionEngine(
             failures.add(FailureType.FALSE_CORRECTION_RISK_FAILURE)
             debugSteps.add("safeguard triggered: preserved raw token \"$phraseNorm\" due to low match confidence (${"%.2f".format(finalConfidence)} < ${profile.minimumConfidenceThreshold})")
             debugSteps.add("rejected candidate: \"${bestCandidate.candidate}\"")
+            val hint = ExplanationHint(
+                type = ExplanationType.NO_CHANGES,
+                originalText = token,
+                reconstructedText = phraseNorm
+            )
             return CorrectionResult(
                 canonical = phraseNorm,
                 confidence = finalConfidence,
                 failures = failures,
                 debugSteps = debugSteps,
-                groupPath = groupPath
+                groupPath = groupPath,
+                explanationHint = hint
             )
         }
 
+        // Explainable Trace Formatting: candidate, baseConfidence, contextBonus, reason, finalConfidence
+        val baseConf = finalConfidence - bestCandidate.contextBonus
+        if (bestCandidate.contextBonus > 0.0f) {
+            debugSteps.add("context bonus applied: baseConfidence=${"%.2f".format(baseConf)}, bonus=${"%.2f".format(bestCandidate.contextBonus)}, reason=${bestCandidate.contextReason ?: "none"}")
+        }
         debugSteps.add("accepted candidate: \"${bestCandidate.candidate}\"")
         debugSteps.add("distance: ${bestCandidate.distance}")
         debugSteps.add("final confidence: ${"%.2f".format(finalConfidence)}")
@@ -322,13 +431,28 @@ class OcrCorrectionEngine(
         if (category != null) debugSteps.add("category: $category")
         debugSteps.add("canonicalized: ${bestCandidate.candidate}")
 
+        val hint = if (bestCandidate.contextBonus > 0.0f) {
+            ExplanationHint(
+                type = ExplanationType.CONTEXTUAL_RECONSTRUCTION,
+                originalText = token,
+                reconstructedText = bestCandidate.candidate
+            )
+        } else {
+            ExplanationHint(
+                type = ExplanationType.SPELLING_CORRECTION,
+                originalText = token,
+                reconstructedText = bestCandidate.candidate
+            )
+        }
+
         return CorrectionResult(
             canonical = bestCandidate.candidate,
             confidence = finalConfidence,
             failures = failures,
             debugSteps = debugSteps,
             ontologyCategory = category,
-            groupPath = groupPath
+            groupPath = groupPath,
+            explanationHint = hint
         )
     }
 }

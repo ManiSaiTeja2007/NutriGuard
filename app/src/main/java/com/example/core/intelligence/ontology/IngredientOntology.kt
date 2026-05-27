@@ -4,6 +4,7 @@ import com.example.core.additives.ENumberEntry
 import com.example.core.additives.ENumberRepository
 import com.example.core.ontology.OntologyRepository
 import com.example.core.ontology.IngredientCategory
+import com.example.core.aliases.AliasRepairEngine
 import java.util.Locale
 
 /**
@@ -21,19 +22,6 @@ data class OntologyCategory(
 
 object IngredientOntology {
 
-    // ------- Abbreviation / Acronym resolutions -------
-    private val abbreviations = mapOf(
-        "msg" to "monosodium glutamate",
-        "hfcs" to "high fructose corn syrup",
-        "slt" to "salt",
-        "tbhq" to "tertiary butylhydroquinone",
-        "bha" to "butylated hydroxyanisole",
-        "bht" to "butylated hydroxytoluene",
-        "edta" to "ethylenediaminetetraacetic acid",
-        "pgpr" to "polyglycerol polyricinoleate",
-        "sles" to "sodium laureth sulfate",
-        "sls" to "sodium lauryl sulfate"
-    )
 
     // ------- Subclass → parent relationships -------
     private val subClassRelations = mapOf(
@@ -115,8 +103,8 @@ object IngredientOntology {
         val eNumber = ENumberEntry.find(clean)
         if (eNumber != null) return eNumber.canonicalName
 
-        val abbrevMatch = abbreviations[clean]
-        if (abbrevMatch != null) return abbrevMatch
+        val aliasRepair = AliasRepairEngine.repair(clean)
+        if (aliasRepair.isRepaired) return aliasRepair.repairedText
 
         return null
     }

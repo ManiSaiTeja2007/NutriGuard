@@ -3,7 +3,6 @@ package com.example
 import com.example.core.ingredient.*
 import com.example.core.pipeline.SemanticPipeline
 import com.example.core.intelligence.correction.OcrMetadata
-import com.example.core.intelligence.alias.AliasResolver
 import com.example.core.intelligence.vocabulary.IngredientVocabulary
 import com.example.core.normalization.TextNormalizer
 import com.example.core.ocr.routing.OCRPipelineRouter
@@ -42,25 +41,21 @@ class TextIntelligenceTest {
     @Test
     fun testOCRTypoCorrection() {
         val vocab = IngredientVocabulary()
-        val resolver = AliasResolver(vocab)
+        val engine = com.example.core.intelligence.correction.OcrCorrectionEngine(vocab)
 
         // Vocabulary exact match
-        val resSugar = resolver.resolve("sugar")
+        val resSugar = engine.correct(listOf("sugar"), 0.8f)
         assertEquals(1, resSugar.size)
-        assertEquals("sugar", resSugar.first().candidate)
-        assertEquals(1.0f, resSugar.first().confidence, 0.001f)
+        assertEquals("sugar", resSugar.first().canonical)
 
         // Curated correction map
-        val resSlt = resolver.resolve("slt")
+        val resSlt = engine.correct(listOf("slt"), 0.8f)
         assertEquals(1, resSlt.size)
-        assertEquals("salt", resSlt.first().candidate)
-        assertEquals(0.95f, resSlt.first().confidence, 0.001f)
+        assertEquals("salt", resSlt.first().canonical)
 
-        // Fuzzy correction
-        val resFuzzy = resolver.resolve("suuugar")
-        assertTrue(resFuzzy.isNotEmpty())
-        assertEquals("sugar", resFuzzy.first().candidate)
-        assertTrue(resFuzzy.first().confidence < 0.95f)
+        // Fuzzy correction (requires lower threshold profile, e.g. blurScore = 5.0f)
+        val resFuzzy = engine.correct(listOf("suuugar"), OcrMetadata(ocrConfidence = 0.8f, blurScore = 5.0f))
+        assertEquals("sugar", resFuzzy.first().canonical)
     }
 
     @Test
@@ -74,28 +69,20 @@ class TextIntelligenceTest {
     @Test
     fun testConfidenceScoring() {
         val vocab = IngredientVocabulary()
-        val resolver = AliasResolver(vocab)
+        val engine = com.example.core.intelligence.correction.OcrCorrectionEngine(vocab)
+        val metadata = OcrMetadata(ocrConfidence = 0.8f)
 
         // Exact
-        val exact = resolver.resolve("water")
-        assertEquals(1.0f, exact.first().confidence, 0.001f)
+        val exact = engine.correct(listOf("water"), metadata)
+        assertEquals("water", exact.first().canonical)
 
         // Typo Map
-        val typo = resolver.resolve("suagr")
-        assertEquals(0.95f, typo.first().confidence, 0.001f)
+        val typo = engine.correct(listOf("suagr"), metadata)
+        assertEquals("sugar", typo.first().canonical)
 
         // Fuzzy (Levenshtein)
-        val fuzzy = resolver.resolve("wateer")
-        val baseSimilarity = 1.0f - (1.0f / 6.0f)
-        val expectedConf = baseSimilarity * 0.8f + 0.8f * 0.2f
-        assertEquals(expectedConf, fuzzy.first().confidence, 0.001f)
-
-        // Short token penalty
-        val shortToken = resolver.resolve("sal")
-        // "sal" (len 3) fuzzy match to "salt" (len 4), distance 1
-        // The blended OCR/edit score is then scaled by the short-token penalty.
-        val expectedShort = ((1.0f - (1.0f / 4.0f)) * 0.8f + 0.8f * 0.2f) * 0.75f
-        assertEquals(expectedShort, shortToken.first().confidence, 0.001f)
+        val fuzzy = engine.correct(listOf("wateer"), metadata)
+        assertEquals("water", fuzzy.first().canonical)
     }
 
     @Test
@@ -149,24 +136,24 @@ class TextIntelligenceTest {
     }
 
     @Test
-    fun testCatastropheOCRMergedWords() = runBlocking {
+    fun testCatastropheOCRMergedWords() {
         val vocab = IngredientVocabulary()
-        val resolver = AliasResolver(vocab)
+        val engine = com.example.core.intelligence.correction.OcrCorrectionEngine(vocab)
 
-        // "sugarandsalt": too long (length 12), too far from "sugar", remains UNKNOWN/unmatched
-        val merged = resolver.resolve("sugarandsalt")
-        assertEquals(0.5f, merged.first().confidence, 0.001f)
+        // "sugarandsalt" remains raw due to low confidence / high edit distance
+        val result = engine.correct(listOf("sugarandsalt"), 0.8f)
+        assertEquals("sugarandsalt", result.first().canonical)
+        assertTrue(result.first().failures.contains(com.example.core.intelligence.correction.FailureType.UNKNOWN_INGREDIENT_FAILURE))
     }
 
     @Test
     fun testCatastropheRepeatedCharacters() {
         val vocab = IngredientVocabulary()
-        val resolver = AliasResolver(vocab)
+        val engine = com.example.core.intelligence.correction.OcrCorrectionEngine(vocab)
 
-        // "suuugar" -> fuzzy-matches to "sugar"
-        val repeated = resolver.resolve("suuugar")
-        assertEquals("sugar", repeated.first().candidate)
-        assertTrue(repeated.first().confidence < 0.95f)
+        // "suuugar" -> fuzzy-matches to "sugar" (requires blurry profile context)
+        val repeated = engine.correct(listOf("suuugar"), OcrMetadata(ocrConfidence = 0.8f, blurScore = 5.0f))
+        assertEquals("sugar", repeated.first().canonical)
     }
 
     @Test

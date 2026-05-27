@@ -1,0 +1,5 @@
+{
+  "same_category_bonus": 0.12,
+  "additive_neighbor_bonus": 0.08,
+  "ingredient_sequence_bonus": 0.05
+}

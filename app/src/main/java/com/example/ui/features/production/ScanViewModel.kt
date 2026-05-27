@@ -263,6 +263,15 @@ class ScanViewModel : ViewModel() {
                     val phraseArr = JSONArray()
                     result.phraseWindow.forEach { phraseArr.put(it) }
                     put("phraseWindow", phraseArr)
+
+                    if (result.explanationHint != null) {
+                        put("explanationHint", JSONObject().apply {
+                            put("type", result.explanationHint.type.name)
+                            put("originalText", result.explanationHint.originalText ?: "")
+                            put("reconstructedText", result.explanationHint.reconstructedText ?: "")
+                            put("reason", result.explanationHint.reason)
+                        })
+                    }
                 })
             }
         }.toString()

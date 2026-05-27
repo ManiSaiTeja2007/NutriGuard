@@ -10,14 +10,24 @@ class NavController(initialScreen: Screen = Screen.Home) {
 
     private val backStack = mutableListOf<Screen>()
 
+    private fun filterScreen(screen: Screen): Screen {
+        val isForbidden = com.example.core.config.BuildCapabilities.isProductionBuild && (
+            screen is Screen.DeveloperTools ||
+            screen is Screen.ReplayViewer ||
+            screen is Screen.BenchmarkRunner
+        )
+        return if (isForbidden) Screen.Home else screen
+    }
+
     fun navigateTo(screen: Screen) {
+        val target = filterScreen(screen)
         backStack.add(currentScreen)
-        currentScreen = screen
+        currentScreen = target
     }
 
     fun popBackStack(): Boolean {
         if (backStack.isNotEmpty()) {
-            currentScreen = backStack.removeAt(backStack.size - 1)
+            currentScreen = filterScreen(backStack.removeAt(backStack.size - 1))
             return true
         }
         return false
@@ -25,6 +35,6 @@ class NavController(initialScreen: Screen = Screen.Home) {
 
     fun clearBackStackAndNavigate(screen: Screen) {
         backStack.clear()
-        currentScreen = screen
+        currentScreen = filterScreen(screen)
     }
 }

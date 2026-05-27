@@ -67,6 +67,18 @@ fun ResultsScreen(
                     for (j in 0 until warningsArr.length()) warnings.add(warningsArr.getString(j))
                 }
 
+                val hintObj = obj.optJSONObject("explanationHint")
+                val explanationHint = if (hintObj != null) {
+                    com.example.core.intelligence.explanation.ExplanationHint(
+                        type = com.example.core.intelligence.explanation.ExplanationType.valueOf(hintObj.getString("type")),
+                        originalText = hintObj.optString("originalText").ifBlank { null },
+                        reconstructedText = hintObj.optString("reconstructedText").ifBlank { null },
+                        reason = hintObj.getString("reason")
+                    )
+                } else {
+                    null
+                }
+
                 list.add(
                     CorrectionResult(
                         canonical = obj.getString("canonical"),
@@ -80,7 +92,8 @@ fun ResultsScreen(
                         interpretedCategory = obj.optString("interpretedCategory").ifBlank { null },
                         additiveCode = obj.optString("additiveCode").ifBlank { null },
                         explanation = obj.optString("explanation").ifBlank { null },
-                        warnings = warnings
+                        warnings = warnings,
+                        explanationHint = explanationHint
                     )
                 )
             }
@@ -430,7 +443,19 @@ private fun IngredientItemRow(ingredient: CorrectionResult) {
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                if (showTraceOption && ingredient.originalToken != ingredient.canonical && ingredient.originalToken.isNotBlank()) {
+                val hint = ingredient.explanationHint
+                if (hint != null && hint.type != com.example.core.intelligence.explanation.ExplanationType.NO_CHANGES && !hint.originalText.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "${hint.reason} (Original: \"${hint.originalText}\")",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.testTag("correction_badge_${ingredient.canonical.lowercase().replace(" ", "_")}")
+                    )
+                }
+
+                if (showTraceOption && ingredient.originalToken != ingredient.canonical && ingredient.originalToken.isNotBlank() && (hint == null || hint.type == com.example.core.intelligence.explanation.ExplanationType.NO_CHANGES)) {
                     Text(
                         text = "Original: \"${ingredient.originalToken}\"",
                         style = MaterialTheme.typography.bodySmall,

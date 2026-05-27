@@ -39,10 +39,16 @@ fun NutriSettingsToggle(
     modifier: Modifier = Modifier,
     subtitle: String? = null
 ) {
-    NutriCard(modifier = modifier.fillMaxWidth()) {
+    NutriCard(
+        onClick = { onCheckedChange(!checked) },
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("setting_toggle_${title.lowercase().replace(" ", "_")}")
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 48.dp)
                 .padding(NutriSpacing.md),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -65,8 +71,7 @@ fun NutriSettingsToggle(
             }
             Switch(
                 checked = checked,
-                onCheckedChange = onCheckedChange,
-                modifier = Modifier.testTag("setting_toggle_${title.lowercase().replace(" ", "_")}"),
+                onCheckedChange = null, // Delegate click/semantics to parent card
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                     checkedTrackColor = MaterialTheme.colorScheme.primary
@@ -84,10 +89,16 @@ fun NutriSettingsSelector(
     modifier: Modifier = Modifier,
     subtitle: String? = null
 ) {
-    NutriCard(modifier = modifier.fillMaxWidth()) {
+    NutriCard(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("setting_selector_${title.lowercase().replace(" ", "_")}")
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 48.dp)
                 .padding(NutriSpacing.md),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -108,16 +119,18 @@ fun NutriSettingsSelector(
                     )
                 }
             }
-            Button(
-                onClick = onClick,
+            Surface(
                 shape = NutriShapes.button,
-                modifier = Modifier.testTag("setting_selector_${title.lowercase().replace(" ", "_")}"),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(start = NutriSpacing.sm)
             ) {
-                Text(selectedValue)
+                Text(
+                    text = selectedValue,
+                    modifier = Modifier.padding(horizontal = NutriSpacing.md, vertical = NutriSpacing.xs),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

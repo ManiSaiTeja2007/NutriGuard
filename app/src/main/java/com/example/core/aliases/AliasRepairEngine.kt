@@ -39,6 +39,14 @@ object AliasRepairEngine {
             map["haldi"] = AliasTarget("turmeric", true)
             map["namak"] = AliasTarget("salt", true)
             map["dahi"] = AliasTarget("yogurt", true)
+            map["hfcs"] = AliasTarget("high fructose corn syrup", false)
+            map["tbhq"] = AliasTarget("tertiary butylhydroquinone", false)
+            map["bha"] = AliasTarget("butylated hydroxyanisole", false)
+            map["bht"] = AliasTarget("butylated hydroxytoluene", false)
+            map["edta"] = AliasTarget("ethylenediaminetetraacetic acid", false)
+            map["pgpr"] = AliasTarget("polyglycerol polyricinoleate", false)
+            map["sles"] = AliasTarget("sodium laureth sulfate", false)
+            map["sls"] = AliasTarget("sodium lauryl sulfate", false)
         }
         map
     }

@@ -71,7 +71,7 @@ fun ScanScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF7FAF9))
+                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
         ) {
             val modeToRender = if (FeatureFlags.enableTestImages) uiState.mode else DebugMode.LiveCamera
@@ -124,15 +124,15 @@ private fun RowScope.ModeButton(
     onClick: () -> Unit
 ) {
     val colors = if (selected) {
-        ButtonDefaults.buttonColors(containerColor = Color(0xFF116A5B))
+        ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
     } else {
-        ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF163832))
+        ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
     }
     if (selected) {
         Button(
             onClick = onClick,
             colors = colors,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f).height(48.dp)
         ) {
             Text(text = text, style = MaterialTheme.typography.labelMedium)
         }
@@ -140,7 +140,7 @@ private fun RowScope.ModeButton(
         OutlinedButton(
             onClick = onClick,
             colors = colors,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f).height(48.dp)
         ) {
             Text(text = text, style = MaterialTheme.typography.labelMedium)
         }
@@ -167,12 +167,12 @@ private fun LiveCameraPanel(
                 text = "Camera access required",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF163832)
+                color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(modifier = Modifier.height(12.dp))
             Button(
                 onClick = onRequestCameraPermission,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF116A5B))
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text(text = "Grant camera access")
             }
@@ -278,7 +278,7 @@ private fun TestImagesPanel(
                 text = "Show Preprocessed Preview:",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF5D6E6A)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -287,15 +287,15 @@ private fun TestImagesPanel(
                 PreprocessingFilter.values().forEach { filter ->
                     val isSelected = selectedFilter == filter
                     val colors = if (isSelected) {
-                        ButtonDefaults.buttonColors(containerColor = Color(0xFF116A5B))
+                        ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     } else {
-                        ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF163832))
+                        ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                     }
                     if (isSelected) {
                         Button(
                             onClick = { selectedFilter = filter },
                             colors = colors,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).height(48.dp)
                         ) {
                             Text(
                                 text = when (filter) {
@@ -310,7 +310,7 @@ private fun TestImagesPanel(
                         OutlinedButton(
                             onClick = { selectedFilter = filter },
                             colors = colors,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).height(48.dp)
                         ) {
                             Text(
                                 text = when (filter) {
@@ -343,12 +343,12 @@ private fun TestImagesPanel(
                 text = "Active Overlays:",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF5D6E6A)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             NutriCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, Color(0xFFE8EFEC), NutriShapes.button)
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), NutriShapes.button)
             ) {
                 Column(
                     modifier = Modifier.padding(12.dp),
@@ -362,19 +362,19 @@ private fun TestImagesPanel(
                             Checkbox(
                                 checked = showRawBoxes,
                                 onCheckedChange = { showRawBoxes = it },
-                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFF116A5B))
+                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Raw Boxes", style = MaterialTheme.typography.bodySmall, color = Color(0xFF3D4946))
+                            Text("Raw Boxes", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(
                                 checked = showReconstructedLines,
                                 onCheckedChange = { showReconstructedLines = it },
-                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFF116A5B))
+                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Lines", style = MaterialTheme.typography.bodySmall, color = Color(0xFF3D4946))
+                            Text("Lines", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     Row(
@@ -385,19 +385,19 @@ private fun TestImagesPanel(
                             Checkbox(
                                 checked = showCandidates,
                                 onCheckedChange = { showCandidates = it },
-                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFF116A5B))
+                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Candidates", style = MaterialTheme.typography.bodySmall, color = Color(0xFF3D4946))
+                            Text("Candidates", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(
                                 checked = showHeatmap,
                                 onCheckedChange = { showHeatmap = it },
-                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFF116A5B))
+                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Heatmap", style = MaterialTheme.typography.bodySmall, color = Color(0xFF3D4946))
+                            Text("Heatmap", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     Row(
@@ -408,19 +408,19 @@ private fun TestImagesPanel(
                             Checkbox(
                                 checked = showTileBoundaries,
                                 onCheckedChange = { showTileBoundaries = it },
-                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFF116A5B))
+                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Tiles", style = MaterialTheme.typography.bodySmall, color = Color(0xFF3D4946))
+                            Text("Tiles", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(
                                 checked = showIngredientRegions,
                                 onCheckedChange = { showIngredientRegions = it },
-                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFF116A5B))
+                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Paragraphs", style = MaterialTheme.typography.bodySmall, color = Color(0xFF3D4946))
+                            Text("Paragraphs", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -436,23 +436,23 @@ private fun TestImagesPanel(
                 onClick = {
                     viewModel.selectPreviousTestImage(repository)
                 },
-                modifier = Modifier.width(110.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF163832))
+                modifier = Modifier.size(width = 110.dp, height = 48.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text(text = "Previous")
             }
             Text(
                 text = "${uiState.selectedIndex + 1} / ${imageNames.size}",
                 style = MaterialTheme.typography.labelLarge,
-                color = Color(0xFF3D4946),
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold
             )
             Button(
                 onClick = {
                     viewModel.selectNextTestImage(repository)
                 },
-                modifier = Modifier.width(110.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF116A5B))
+                modifier = Modifier.size(width = 110.dp, height = 48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text(text = "Next")
             }
@@ -465,15 +465,15 @@ private fun TestImagesPanel(
             onClick = {
                 viewModel.ingestTestImage(context, navController)
             },
-            modifier = Modifier.fillMaxWidth().testTag("scan_ingest_button"),
+            modifier = Modifier.fillMaxWidth().height(48.dp).testTag("scan_ingest_button"),
             enabled = ocrText.isNotBlank() && !uiState.isIngesting,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF116A5B),
-                disabledContainerColor = Color(0xFF2C4C46)
+                containerColor = MaterialTheme.colorScheme.primary,
+                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
             )
         ) {
             if (uiState.isIngesting) {
-                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
             } else {
                 Text("Ingest Test Image")
             }
@@ -484,7 +484,7 @@ private fun TestImagesPanel(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = errorText,
-                color = Color(0xFFE74C3C),
+                color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -526,14 +526,14 @@ private fun TestImagePreview(
             .fillMaxWidth()
             .height(300.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFE8EFEC))
-            .border(1.dp, Color(0xFFC8D4CF), RoundedCornerShape(8.dp)),
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
         val maxW = maxWidth
         val maxH = maxHeight
         if (asset == null) {
-            Text(text = "Loading preview", color = Color(0xFF3D4946))
+            Text(text = "Loading preview", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             val preprocessedBitmap = remember(asset.bitmap, filter) {
                 when (filter) {
@@ -826,14 +826,14 @@ private fun TestImagePreview(
                             }
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
-                                color = Color(0xFF116A5B),
+                                color = MaterialTheme.colorScheme.primary,
                                 tonalElevation = 2.dp
                             ) {
                                 Text(
                                     text = ocrResult.complexityRating,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -869,7 +869,7 @@ private fun TestImagePreview(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF116A5B).copy(alpha = 0.8f))
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
                     ) {
                         Text("Reset View", style = MaterialTheme.typography.labelSmall)
                     }

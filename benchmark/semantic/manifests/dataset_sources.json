@@ -1,18 +1,16 @@
 {
   "datasets": [
     {
-      "name": "OpenFoodFacts Taxonomies",
-      "url": "https://world.openfoodfacts.org/data",
-      "local_path": "benchmark/semantic/ingredient_labels/openfoodfacts/",
-      "version": "1.0.0",
-      "description": "Primary taxonomy dataset for offline ingredient and additive mapping."
+      "name": "Kaggle Ingredients Image from Food Label Dataset",
+      "url": "https://www.kaggle.com/datasets/shensivam/ingredients-image-from-food-label",
+      "description": "Images of ingredient labels from food packaging, annotated with ground truth text.",
+      "use_case": "OCR correction calibration, confusion pattern extraction, and model training validation"
     },
     {
-      "name": "Ingredients Image From Food Label",
-      "url": "https://www.kaggle.com/datasets/shensivam/ingredients-image-from-food-label",
-      "local_path": "benchmark/semantic/difficult_cases/",
-      "version": "1.0.0",
-      "description": "Kaggle source dataset for packaging images and annotations."
+      "name": "OpenFoodFacts Taxonomies",
+      "url": "https://world.openfoodfacts.org/data",
+      "description": "Crowdsourced database of food packaging ingredients and additives classifications.",
+      "use_case": "Calibration data, aliases definition, and parent/subclass validation mapping"
     }
   ]
 }

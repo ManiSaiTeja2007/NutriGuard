@@ -11,5 +11,13 @@
   "ins-621": { "resolved": "e621", "isTransliteration": false },
   "haldi": { "resolved": "turmeric", "isTransliteration": true },
   "namak": { "resolved": "salt", "isTransliteration": true },
-  "dahi": { "resolved": "yogurt", "isTransliteration": true }
+  "dahi": { "resolved": "yogurt", "isTransliteration": true },
+  "hfcs": { "resolved": "high fructose corn syrup", "isTransliteration": false },
+  "tbhq": { "resolved": "tertiary butylhydroquinone", "isTransliteration": false },
+  "bha": { "resolved": "butylated hydroxyanisole", "isTransliteration": false },
+  "bht": { "resolved": "butylated hydroxytoluene", "isTransliteration": false },
+  "edta": { "resolved": "ethylenediaminetetraacetic acid", "isTransliteration": false },
+  "pgpr": { "resolved": "polyglycerol polyricinoleate", "isTransliteration": false },
+  "sles": { "resolved": "sodium laureth sulfate", "isTransliteration": false },
+  "sls": { "resolved": "sodium lauryl sulfate", "isTransliteration": false }
 }

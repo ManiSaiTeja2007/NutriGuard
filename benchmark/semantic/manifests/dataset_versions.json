@@ -1,0 +1,20 @@
+{
+  "openfoodfacts_ingredients": {
+    "source_url": "https://static.openfoodfacts.org/data/taxonomies/ingredients.json",
+    "download_date": "2026-05-27",
+    "version": "1.0.0",
+    "checksum_sha256": "b42a1628d9d50c9a5623fb46460ec62782ad939f55d4820cf27a99f1de6fb696"
+  },
+  "openfoodfacts_additives": {
+    "source_url": "https://static.openfoodfacts.org/data/taxonomies/additives.json",
+    "download_date": "2026-05-27",
+    "version": "1.0.0",
+    "checksum_sha256": "7ad77ce8ca840304262e5a28f48c9fa70df730c54a5b6237ca438d5af3461361"
+  },
+  "openfoodfacts_products": {
+    "source_url": "https://world.openfoodfacts.org/cgi/search.pl?search_terms=ingredients&json=true&page_size=50",
+    "download_date": "2026-05-27",
+    "version": "1.0.0",
+    "checksum_sha256": "dac4a0cea513c558c7be5a9e062ccced3a5428ae6ceb9c84b5f0fe99e3da9d49"
+  }
+}

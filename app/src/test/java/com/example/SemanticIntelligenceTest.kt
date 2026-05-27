@@ -10,6 +10,10 @@ import com.example.core.intelligence.IngredientInterpreter
 import com.example.core.intelligence.InterpretationFailure
 import com.example.core.intelligence.ResolutionSource
 import com.example.core.ontology.IngredientCategory
+import com.example.core.intelligence.vocabulary.IngredientVocabulary
+import com.example.core.intelligence.correction.OcrMetadata
+import com.example.core.intelligence.correction.CorrectionResult
+import com.example.core.intelligence.correction.FailureType
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -183,5 +187,54 @@ class SemanticIntelligenceTest {
         assertTrue(flowchart.contains("Additive Resolution:"))
         assertTrue(flowchart.contains("Confidence Calibration:"))
         assertTrue(flowchart.contains("Final Interpretation:"))
+    }
+
+    @Test
+    fun testContextualSemanticScorerDirectly() {
+        val scorer = com.example.core.intelligence.context.ContextualSemanticScorer
+        val categories = setOf("acidity_regulator")
+        val keywords = setOf("preservative")
+
+        // 1. Same category bonus
+        val res1 = scorer.scoreCandidate("citric acid", 0.65f, categories, emptySet())
+        assertEquals(0.77f, res1.finalConfidence, 0.001f)
+        assertEquals(0.12f, res1.bonusApplied, 0.001f)
+        assertEquals("neighbor category: acidity_regulator", res1.reason)
+
+        // 2. Keyword context bonus (using a preservative like sodium benzoate)
+        val res2 = scorer.scoreCandidate("sodium benzoate", 0.65f, emptySet(), keywords)
+        assertEquals(0.77f, res2.finalConfidence, 0.001f)
+        assertEquals(0.12f, res2.bonusApplied, 0.001f)
+        assertEquals("neighbor keyword match: preservative", res2.reason)
+
+        // 3. Additive proximity bonus
+        val res3 = scorer.scoreCandidate("e330", 0.65f, categories, emptySet())
+        assertEquals(0.85f, res3.finalConfidence, 0.001f)
+        assertEquals(0.20f, res3.bonusApplied, 0.001f) // category bonus (0.12) + additive proximity bonus (0.08)
+    }
+
+    @Test
+    fun testOcrCorrectionEngineContextualScoring() {
+        val vocab = IngredientVocabulary()
+        val engine = com.example.core.intelligence.correction.OcrCorrectionEngine(vocab)
+        val metadata = OcrMetadata(ocrConfidence = 0.70f)
+
+        // No context: "citric ac" base confidence is 0.79f, below 0.80f threshold, so it fails to correct
+        val noContextResult = engine.correct(listOf("citric ac"), metadata)
+        assertEquals("citric ac", noContextResult.first().canonical)
+        assertTrue(noContextResult.first().failures.contains(com.example.core.intelligence.correction.FailureType.FALSE_CORRECTION_RISK_FAILURE))
+
+        // With context: "citric ac" near acidity regulator "e330" gets contextual category bonus (+0.12f), raising it to 0.91f >= 0.80f threshold
+        val contextResult = engine.correct(listOf("e330", "citric ac"), metadata)
+        val correctedCitric = contextResult.firstOrNull { it.originalToken == "citric ac" }
+        assertNotNull(correctedCitric)
+        assertEquals("citric acid", correctedCitric?.canonical)
+        
+        // Assert debugSteps contains explainable trace details
+        val traceStr = correctedCitric?.debugSteps?.firstOrNull { it.startsWith("context bonus applied:") }
+        assertNotNull(traceStr)
+        assertTrue(traceStr!!.contains("baseConfidence="))
+        assertTrue(traceStr.contains("bonus=0.12"))
+        assertTrue(traceStr.contains("reason=neighbor category: acidity_regulator"))
     }
 }

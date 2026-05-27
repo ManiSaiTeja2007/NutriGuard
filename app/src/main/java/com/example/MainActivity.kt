@@ -148,18 +148,45 @@ class MainActivity : ComponentActivity() {
                                     navController = navController,
                                     onOpenDrawer = { scope.launch { drawerState.open() } }
                                 )
-                                is Screen.DeveloperTools -> DeveloperToolsScreen(
-                                    navController = navController,
-                                    onOpenDrawer = { scope.launch { drawerState.open() } }
-                                )
-                                is Screen.ReplayViewer -> ReplayViewerScreen(
-                                    replayId = screen.replayId,
-                                    navController = navController
-                                )
-                                is Screen.BenchmarkRunner -> BenchmarkRunnerScreen(
-                                    navController = navController,
-                                    onOpenDrawer = { scope.launch { drawerState.open() } }
-                                )
+                                is Screen.DeveloperTools -> {
+                                    if (com.example.core.config.BuildCapabilities.isProductionBuild) {
+                                        HomeScreen(
+                                            navController = navController,
+                                            onOpenDrawer = { scope.launch { drawerState.open() } }
+                                        )
+                                    } else {
+                                        DeveloperToolsScreen(
+                                            navController = navController,
+                                            onOpenDrawer = { scope.launch { drawerState.open() } }
+                                        )
+                                    }
+                                }
+                                is Screen.ReplayViewer -> {
+                                    if (com.example.core.config.BuildCapabilities.isProductionBuild) {
+                                        HomeScreen(
+                                            navController = navController,
+                                            onOpenDrawer = { scope.launch { drawerState.open() } }
+                                        )
+                                    } else {
+                                        ReplayViewerScreen(
+                                            replayId = screen.replayId,
+                                            navController = navController
+                                        )
+                                    }
+                                }
+                                is Screen.BenchmarkRunner -> {
+                                    if (com.example.core.config.BuildCapabilities.isProductionBuild) {
+                                        HomeScreen(
+                                            navController = navController,
+                                            onOpenDrawer = { scope.launch { drawerState.open() } }
+                                        )
+                                    } else {
+                                        BenchmarkRunnerScreen(
+                                            navController = navController,
+                                            onOpenDrawer = { scope.launch { drawerState.open() } }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
