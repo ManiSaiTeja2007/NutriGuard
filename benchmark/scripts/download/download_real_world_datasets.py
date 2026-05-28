@@ -214,8 +214,8 @@ def fetch_real_products_csv():
 def main():
     global verified_files_count
     
-    # Expected files count (ingredients.json, additives.json, products.csv, fail_001.png, fail_002.png)
-    expected_files = 5
+    # Expected files count (ingredients.json, additives.json, products.csv, fail_001.png..fail_004.png)
+    expected_files = 7
     
     # 1. Download taxonomies
     ing_sha, ing_fallback = download_file_resumable(INGREDIENTS_TAXONOMY_URL, INGREDIENTS_JSON, "Ingredients Taxonomy")
@@ -265,7 +265,7 @@ def main():
             prod_sha = None
 
     # Validate failure images
-    fail_images = ["fail_001.png", "fail_002.png"]
+    fail_images = ["fail_001.png", "fail_002.png", "fail_003.png", "fail_004.png"]
     img_states = {}
     for img in fail_images:
         path = os.path.join(FAILURE_CASES_DIR, img)
@@ -344,7 +344,7 @@ def main():
     
     # Health Report
     health = {
-        "real_world_images": 2 - sum([1 for state in img_states.values() if state["fallback"]]),
+        "real_world_images": 4 - sum([1 for state in img_states.values() if state["fallback"]]),
         "synthetic_images": 0,
         "mock_images": sum([1 for state in img_states.values() if state["fallback"]]),
         "verified_checksums": verified_files_count,

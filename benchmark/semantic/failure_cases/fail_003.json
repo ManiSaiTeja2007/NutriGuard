@@ -1,0 +1,40 @@
+{
+  "case_id": "fail_003",
+  "schema_version": "1.1.0",
+  "description": "Blurry tilted sachet printing insu621. Replays as UNKNOWN/UNCERTAIN.",
+  "screenshot_path": "benchmark/semantic/failure_cases/fail_003.png",
+  "raw_ocr_output": "insu621",
+  "replay_trace": [
+    "OCR: insu621",
+    "Normalization: insu621",
+    "Alias Repair: insu621",
+    "Additive Resolution: None",
+    "Confidence Calibration: UNCERTAIN",
+    "Final Interpretation: Unknown Ingredient"
+  ],
+  "semantic_output": null,
+  "corrected_expectation": "e621",
+  "confidence_output": "UNCERTAIN",
+  "environment": {
+    "lighting": "blurry",
+    "surface": "tilted",
+    "blur": "severe"
+  },
+  "quality_metadata": {
+    "blur_level": 0.85,
+    "brightness": 0.50,
+    "rotation": 15.0,
+    "surface": "tilted",
+    "lighting": "normal",
+    "geometry": "sachet"
+  },
+  "recovery_path": [
+    "OCR normalization",
+    "Alias repair",
+    "Additive Resolution"
+  ],
+  "failure_analysis": {
+    "failure_type": "false_rejection",
+    "root_cause": "extreme blur and tilt leading to character insertion 'u' inside INS notation"
+  }
+}

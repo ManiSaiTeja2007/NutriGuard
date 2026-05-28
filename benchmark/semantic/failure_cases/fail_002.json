@@ -1,6 +1,6 @@
 {
   "case_id": "fail_002",
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "description": "Curved reflective label printing msgggg. Replays as UNKNOWN/UNCERTAIN.",
   "screenshot_path": "benchmark/semantic/failure_cases/fail_002.png",
   "raw_ocr_output": "msgggg",
@@ -20,6 +20,19 @@
     "surface": "curved",
     "blur": "none"
   },
+  "quality_metadata": {
+    "blur_level": 0.05,
+    "brightness": 0.75,
+    "rotation": 0.0,
+    "surface": "curved",
+    "lighting": "reflective",
+    "geometry": "cylinder"
+  },
+  "recovery_path": [
+    "OCR normalization",
+    "Alias repair",
+    "Contextual reconstruction"
+  ],
   "failure_analysis": {
     "failure_type": "false_rejection",
     "root_cause": "extreme OCR spelling corruption did not resolve within edit distance bounds"

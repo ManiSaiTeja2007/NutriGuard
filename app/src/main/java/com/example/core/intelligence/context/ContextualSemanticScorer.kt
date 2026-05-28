@@ -7,6 +7,18 @@ import java.util.Locale
 
 object ContextualSemanticScorer {
 
+    interface DistanceWeightingStrategy {
+        fun calculateWeight(distance: Int): Float
+    }
+
+    object ReciprocalDistanceWeighting : DistanceWeightingStrategy {
+        override fun calculateWeight(distance: Int): Float {
+            return 1.0f / distance.coerceAtLeast(1)
+        }
+    }
+
+    var weightingStrategy: DistanceWeightingStrategy = ReciprocalDistanceWeighting
+
     private val sameCategoryBonus: Float by lazy {
         loadRule("same_category_bonus", 0.12f)
     }
@@ -53,8 +65,8 @@ object ContextualSemanticScorer {
 
         if (category != null) {
             for (neighbor in neighbors) {
-                // Decay context bonus as neighbor distance increases
-                val weight = 1.0f / neighbor.distance.coerceAtLeast(1)
+                // Decay context bonus as neighbor distance increases using current strategy
+                val weight = weightingStrategy.calculateWeight(neighbor.distance)
                 
                 // 1. Same ontology category bonus
                 if (neighbor.category == category) {
@@ -90,7 +102,7 @@ object ContextualSemanticScorer {
                 cleanN.startsWith("e") && cleanN.substring(1).all { it.isDigit() || it == '(' || it == ')' || it == 'i' || it == 'v' }
             }
             for (neighbor in neighborAdditives) {
-                val weight = 1.0f / neighbor.distance.coerceAtLeast(1)
+                val weight = weightingStrategy.calculateWeight(neighbor.distance)
                 val partBonus = additiveNeighborBonus * weight
                 bonus += partBonus
                 reasons.add("additive proximity bonus")

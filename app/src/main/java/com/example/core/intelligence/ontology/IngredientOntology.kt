@@ -34,6 +34,8 @@ object IngredientOntology {
         "coconut oil" to "vegetable oil",
         "cane sugar" to "sugar",
         "beet sugar" to "sugar",
+        "refined sugar" to "sugar",
+        "raw sugar" to "sugar",
         "sodium chloride" to "salt",
         "potassium chloride" to "salt",
         "citric acid" to "acidity regulator",
@@ -131,5 +133,18 @@ object IngredientOntology {
         val cleanChild = child.lowercase(Locale.ROOT).trim()
         val cleanParent = parent.lowercase(Locale.ROOT).trim()
         return subClassRelations[cleanChild] == cleanParent
+    }
+
+    fun getParentCategory(canonical: String): String? {
+        val clean = canonical.lowercase(Locale.ROOT).trim()
+        val directParent = subClassRelations[clean]
+        if (directParent != null) {
+            return directParent
+        }
+        val cat = categoryOf(clean)
+        if (cat != null) {
+            return cat
+        }
+        return null
     }
 }

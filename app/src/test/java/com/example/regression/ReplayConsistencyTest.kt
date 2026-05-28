@@ -1,21 +1,17 @@
 package com.example.regression
 
-import com.example.core.intelligence.IngredientInterpreter
-import com.example.core.intelligence.ResolutionSource
-import com.example.core.confidence.ConfidenceBand
 import com.example.core.intelligence.correction.OcrCorrectionEngine
 import com.example.core.intelligence.correction.OcrMetadata
 import com.example.core.intelligence.vocabulary.IngredientVocabulary
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertFalse
 import org.junit.Test
 import java.io.File
 
-class ContextualReconstructionTest {
+class ReplayConsistencyTest {
 
     private fun assertDatasetsVerified() {
         var dir: File? = File(".").absoluteFile
@@ -31,7 +27,7 @@ class ContextualReconstructionTest {
         val manifestFile = File(benchmarkDir, "semantic/manifests/dataset_versions.json")
         assertTrue("Manifest dataset_versions.json must exist. Run downloader script first.", manifestFile.exists())
         val json = JSONObject(manifestFile.readText())
-        val keys = listOf("openfoodfacts_ingredients", "openfoodfacts_additives", "openfoodfacts_products", "fail_001.png", "fail_002.png")
+        val keys = listOf("openfoodfacts_ingredients", "openfoodfacts_additives", "openfoodfacts_products", "fail_001.png", "fail_002.png", "fail_003.png", "fail_004.png")
         for (key in keys) {
             val dataset = json.optJSONObject(key)
             assertNotNull("Dataset entry for $key must exist in manifest", dataset)
@@ -43,11 +39,11 @@ class ContextualReconstructionTest {
     }
 
     @Test
-    fun testContextualDecayAndSafeguards() {
+    fun testReplayConsistency() {
         assertDatasetsVerified()
-        var file = File("benchmark/regression/contextual_reconstruction_regression.json")
+        var file = File("benchmark/regression/replay_determinism_regression.json")
         if (!file.exists()) {
-            file = File("../benchmark/regression/contextual_reconstruction_regression.json")
+            file = File("../benchmark/regression/replay_determinism_regression.json")
         }
         val json = JSONObject(file.readText())
 
@@ -55,37 +51,38 @@ class ContextualReconstructionTest {
 
         val vocab = IngredientVocabulary()
         val engine = OcrCorrectionEngine(vocab)
-        val metadata = OcrMetadata(ocrConfidence = 0.70f)
+        val metadata = OcrMetadata(ocrConfidence = 0.85f)
 
         val cases = json.getJSONArray("test_cases")
         for (i in 0 until cases.length()) {
             val case = cases.getJSONObject(i)
-            val contextArr = case.getJSONArray("context")
-            val targetInput = case.getString("target_input")
-            val expected = case.getString("expected")
-            val boostExpected = case.getBoolean("boost_expected")
+            val inputArr = case.getJSONArray("input")
+            val expectedArr = case.getJSONArray("expected")
 
-            val contextList = mutableListOf<String>()
-            for (j in 0 until contextArr.length()) {
-                contextList.add(contextArr.getString(j))
+            val inputList = mutableListOf<String>()
+            for (j in 0 until inputArr.length()) {
+                inputList.add(inputArr.getString(j))
             }
 
-            val results = engine.correct(contextList, metadata)
-            
-            // Find corrected result for target
-            val targetRes = results.firstOrNull { it.originalToken == targetInput }
-            assertNotNull("Target token '$targetInput' should be present in results", targetRes)
-            
-            assertEquals("Should resolve to correct canonical", expected, targetRes?.canonical)
-            
-            if (boostExpected) {
-                val step = targetRes?.confidenceStep
-                assertNotNull("ConfidenceStep must not be null for boosted candidate", step)
-                assertTrue("Context bonus must be > 0", step!!.contextBonus > 0.0f)
-                
-                // Assert base confidence safeguard: if base confidence was under 0.70f, final confidence must not be boosted above 0.70f
-                if (step.baseConfidence < 0.70f) {
-                    assertTrue("Base confidence safeguard: final confidence must remain low", step.finalConfidence < 0.70f)
+            val expectedList = mutableListOf<String>()
+            for (j in 0 until expectedArr.length()) {
+                expectedList.add(expectedArr.getString(j))
+            }
+
+            // Run 1
+            val run1 = engine.correct(inputList, metadata)
+            val output1 = run1.map { it.canonical }
+            assertEquals("Run 1 must match expected output", expectedList, output1)
+
+            // Replay Runs 2 to 5
+            for (runIdx in 2..5) {
+                val runN = engine.correct(inputList, metadata)
+                val outputN = runN.map { it.canonical }
+                assertEquals("Replay run $runIdx must match run 1 output", output1, outputN)
+
+                for (j in run1.indices) {
+                    assertEquals("Confidence must match deterministically", run1[j].confidence, runN[j].confidence, 0.0001f)
+                    assertEquals("Original token must match deterministically", run1[j].originalToken, runN[j].originalToken)
                 }
             }
         }

@@ -15,6 +15,7 @@ data class SemanticIngredient(
     val debugSteps: List<String>,
     val phraseWindow: List<String> = emptyList(),
     val ontologyCategory: String? = null,
+    val parentCategory: String? = null,
     val disambiguationRule: String? = null,
     val groupPath: String = "root",
     val interpretedCategory: String? = null,
@@ -58,6 +59,10 @@ data class PipelineResult(
     val replayTrace: List<ReplayStageTrace> = emptyList(),
     val metrics: PipelineMetrics,
     val preprocessingProfile: PreprocessingProfile,
-    val failures: List<PipelineFailure>
+    val failures: List<PipelineFailure>,
+    val allergenInterpretation: com.example.core.intelligence.AllergenInterpretation? = null,
+    val nutritionInterpretation: com.example.core.intelligence.NutritionInterpretation? = null,
+    val storageInterpretation: com.example.core.intelligence.StorageInterpretation? = null,
+    val metadataInterpretation: com.example.core.intelligence.MetadataInterpretation? = null
 )
 

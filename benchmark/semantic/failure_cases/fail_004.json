@@ -1,0 +1,40 @@
+{
+  "case_id": "fail_004",
+  "schema_version": "1.1.0",
+  "description": "Low-light Indian packaging label containing haldi. Replays as UNKNOWN/UNCERTAIN.",
+  "screenshot_path": "benchmark/semantic/failure_cases/fail_004.png",
+  "raw_ocr_output": "haldi",
+  "replay_trace": [
+    "OCR: haldi",
+    "Normalization: haldi",
+    "Alias Repair: haldi",
+    "Additive Resolution: None",
+    "Confidence Calibration: UNCERTAIN",
+    "Final Interpretation: Unknown Ingredient"
+  ],
+  "semantic_output": null,
+  "corrected_expectation": "turmeric",
+  "confidence_output": "UNCERTAIN",
+  "environment": {
+    "lighting": "low_light",
+    "surface": "flat",
+    "blur": "none"
+  },
+  "quality_metadata": {
+    "blur_level": 0.10,
+    "brightness": 0.25,
+    "rotation": 0.0,
+    "surface": "flat",
+    "lighting": "low_light",
+    "geometry": "box"
+  },
+  "recovery_path": [
+    "OCR normalization",
+    "Alias repair",
+    "Transliteration lookup"
+  ],
+  "failure_analysis": {
+    "failure_type": "false_rejection",
+    "root_cause": "transliterated term did not match primary English vocabulary and was capped at moderate confidence"
+  }
+}

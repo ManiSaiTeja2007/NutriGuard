@@ -26,8 +26,6 @@ class PipelineRunner(
         context: android.content.Context? = null
     ): PipelineResult {
         val executionId = PipelineExecutionId.generate()
-        val metricsCollector = MetricsCollector()
-        val replayCollector = ReplayCollector()
 
         if (context != null) {
             com.example.core.export.PipelineSnapshotRepository.saveTempBitmap(context, bitmap, "raw")
@@ -36,197 +34,87 @@ class PipelineRunner(
 
         val totalStart = SystemClock.elapsedRealtime()
 
-        // 1. Create Frame & Run OCR
-        val frame = ImageFrame.BitmapFrame(
-            bitmap = bitmap,
-            rotationDegrees = rotationDegrees,
-            timestampNanos = System.nanoTime(),
-            source = source
-        )
-        val frameResult = FrameAnalysisResult(
-            width = bitmap.width,
-            height = bitmap.height,
-            rotationDegrees = rotationDegrees,
-            timestampNanos = frame.timestampNanos,
-            source = source,
-            hasBitmap = true,
-            processingLatencyMs = 0L
+        // 1. Initialize SemanticExecutionGraph
+        val graph = com.example.core.pipeline.graph.SemanticExecutionGraph(
+            structuralLayoutAnalyzer = com.example.core.pipeline.graph.StructuralLayoutAnalyzer(),
+            targetedOcrCoordinator = com.example.core.pipeline.graph.TargetedOcrCoordinator(ocrPipeline),
+            semanticSectionClassifier = com.example.core.pipeline.graph.SemanticSectionClassifier(),
+            semanticRouter = com.example.core.pipeline.graph.SemanticRouter(),
+            specializedInterpretationStage = com.example.core.pipeline.graph.SpecializedInterpretationStage(semanticPipeline),
+            contextualReconstructionStage = com.example.core.pipeline.graph.ContextualReconstructionStage(config),
+            aggregationStage = com.example.core.pipeline.graph.AggregationStage(),
+            confidenceCalibrationStage = com.example.core.pipeline.graph.ConfidenceCalibrationStage(config),
+            replayGenerationStage = com.example.core.pipeline.graph.ReplayGenerationStage()
         )
 
-        val ocrStart = SystemClock.elapsedRealtime()
-        val ocrResult = ocrPipeline(Pair(frame, frameResult))
-        val ocrLatency = SystemClock.elapsedRealtime() - ocrStart
-        metricsCollector.recordLatency("ocr", ocrLatency)
+        // 2. Execute graph
+        val defaultOcrMetadata = OcrMetadata(0.8f, 0.0f, 0.0f, 0.0f)
+        val graphResult = graph.execute(bitmap, defaultOcrMetadata, executionId)
 
-        if (config.enableReplay) {
-            replayCollector.addStage(
-                stageName = "ocr",
-                input = "image_${bitmap.width}x${bitmap.height}",
-                output = ocrResult.text,
-                latencyMs = ocrLatency
-            )
-        }
-
-        // 2. Run Semantic Ingestion
-        val ocrMetadata = OcrMetadata(
-            ocrConfidence = ocrResult.averageConfidence ?: 0.8f,
-            blurScore = ocrResult.blurScore,
-            contrastScore = ocrResult.contrastScore,
-            brightnessScore = ocrResult.brightnessScore
-        )
-
-        val semStart = SystemClock.elapsedRealtime()
-        val semanticResult = semanticPipeline(Pair(ocrResult.text, ocrMetadata))
-        val semLatency = SystemClock.elapsedRealtime() - semStart
-        metricsCollector.recordLatency("semantic", semLatency)
-
-        metricsCollector.recordLatency("normalization", semanticResult.normalization.latencyMs)
-        metricsCollector.recordLatency("extraction", semanticResult.extraction.latencyMs)
-        metricsCollector.recordLatency("grouping", semanticResult.grouping.latencyMs)
-        metricsCollector.recordLatency("phrase_correction", semanticResult.phraseCorrection.latencyMs)
-        metricsCollector.recordLatency("correction", semanticResult.correction.latencyMs)
-
-        if (config.enableReplay) {
-            replayCollector.addStage(
-                stageName = "normalization",
-                input = ocrResult.text,
-                output = semanticResult.normalization.output,
-                latencyMs = semanticResult.normalization.latencyMs
-            )
-            replayCollector.addStage(
-                stageName = "extraction",
-                input = semanticResult.normalization.output,
-                output = semanticResult.extraction.output.joinToString(", "),
-                latencyMs = semanticResult.extraction.latencyMs
-            )
-            replayCollector.addStage(
-                stageName = "correction",
-                input = semanticResult.phraseCorrection.output.joinToString(", "),
-                output = semanticResult.correction.output.map { it.canonical }.joinToString(", "),
-                latencyMs = semanticResult.correction.latencyMs
-            )
-        }
-
-        // 3. Map to Immutable result structures & Run interpretation stage
-        val semanticIngredients = semanticResult.correction.output.map { result ->
-            val contextualReconstructionText = if (result.confidenceStep != null) {
-                if (result.confidenceStep.contextBonus > 0.0f) result.canonical else null
-            } else {
-                if (result.explanationHint?.type == ExplanationType.CONTEXTUAL_RECONSTRUCTION) result.canonical else null
-            }
-            val baseConfidence = result.confidenceStep?.baseConfidence ?: result.confidence
-
-            val interpretation = IngredientInterpreter.interpret(
-                canonicalName = result.canonical,
-                confidence = result.confidence,
-                originalToken = result.originalToken,
-                contextualReconstructionText = contextualReconstructionText,
-                baseConfidence = baseConfidence,
-                provenance = config.provenance,
-                calibrationEligible = config.calibrationEligible
-            )
-            SemanticIngredient(
-                canonical = result.canonical,
-                originalToken = result.originalToken,
-                confidence = result.confidence,
-                failures = result.failures,
-                debugSteps = result.debugSteps,
-                phraseWindow = result.phraseWindow,
-                ontologyCategory = result.ontologyCategory,
-                disambiguationRule = result.disambiguationRule,
-                groupPath = result.groupPath,
-                interpretedCategory = interpretation.category.name,
-                additiveCode = interpretation.additiveCode,
-                explanation = interpretation.explanation,
-                warnings = interpretation.warnings
-            )
-        }
-
-
-        val interpretStart = SystemClock.elapsedRealtime()
-        val interpretedIngredients = semanticIngredients.map { ing ->
-            val baseConfLine = ing.debugSteps.firstOrNull { it.startsWith("base confidence:") }
-            val baseConfidence = baseConfLine?.substringAfter("base confidence:")?.trim()?.toFloatOrNull() ?: ing.confidence
-            val contextualReconstructionText = if (ing.disambiguationRule != null || ing.debugSteps.any { it.contains("contextual bonus:") }) ing.canonical else null
-
-            IngredientInterpreter.interpret(
-                canonicalName = ing.canonical,
-                confidence = ing.confidence,
-                originalToken = ing.originalToken,
-                contextualReconstructionText = contextualReconstructionText,
-                baseConfidence = baseConfidence,
-                provenance = config.provenance,
-                calibrationEligible = config.calibrationEligible
-            )
-        }
-
-        val interpretLatency = SystemClock.elapsedRealtime() - interpretStart
-        metricsCollector.recordLatency("interpretation", interpretLatency)
-
-        if (config.enableReplay) {
-            replayCollector.addStage(
-                stageName = "interpretation",
-                input = semanticIngredients.map { "${it.canonical} (${it.confidence})" }.joinToString(", "),
-                output = interpretedIngredients.map { "${it.canonicalName ?: "null"} -> [Cat: ${it.category}, Code: ${it.additiveCode}]" }.joinToString(", "),
-                latencyMs = interpretLatency
-            )
+        // Save preprocessed bitmap if targeted ocr coordinates are available
+        if (context != null) {
+            com.example.core.export.PipelineSnapshotRepository.saveTempBitmap(context, bitmap, "prep")
         }
 
         val totalLatency = SystemClock.elapsedRealtime() - totalStart
-        metricsCollector.recordLatency("total", totalLatency)
 
-        val runtime = Runtime.getRuntime()
-        val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1024L
-        metricsCollector.setMemoryUsage(usedMemory)
+        // Collect metrics and latencies from profiler
+        val profiler = graphResult.profiler
+        val ocrLatency = profiler.getMetrics("targeted_ocr")?.latencyMs ?: 0L
+        val normLatency = profiler.getMetrics("specialized_interpretation")?.latencyMs ?: 0L
+        val extLatency = 0L
+        val groupLatency = 0L
+        val phraseLatency = 0L
+        val corrLatency = profiler.getMetrics("contextual_reconstruction")?.latencyMs ?: 0L
 
+        val usedMemory = profiler.getAllMetrics().values.map { it.memoryAllocatedKb }.sum()
+
+        // Map failures
         val pipelineFailures = mutableListOf<PipelineFailure>()
-        ocrResult.failures.forEach {
-            pipelineFailures.add(PipelineFailure(it, "ocr", "OCR failure: ${ocrResult.skippedReason ?: "low confidence/blur"}"))
-        }
-        semanticResult.normalization.failures.forEach {
-            pipelineFailures.add(PipelineFailure(it, "normalization", "Normalization stage warning"))
-        }
-        semanticResult.extraction.failures.forEach {
-            pipelineFailures.add(PipelineFailure(it, "extraction", "Zero tokens extracted"))
-        }
-        semanticIngredients.forEach { ing ->
-            ing.failures.forEach { fail ->
+        graphResult.stageResults.forEach { stageRes ->
+            stageRes.failures.forEach { failStr ->
                 pipelineFailures.add(
                     PipelineFailure(
-                        fail,
-                        "correction",
-                        "Token correction warning on '${ing.originalToken}': ${fail.name}"
+                        com.example.core.intelligence.correction.FailureType.OCR_PIPELINE_ROUTING_FAILURE,
+                        stageRes.stageName,
+                        failStr
                     )
                 )
             }
         }
 
+        val routingStageResult = graphResult.context.metadata["routingResult"] as? com.example.core.pipeline.graph.RoutingResult
+
         val finalResult = PipelineResult(
             executionId = executionId,
-            ocrBlocks = ocrResult.ocrBlocks,
-            ocrLines = ocrResult.reconstructedLines,
-            semanticIngredients = semanticIngredients,
-            interpretedIngredients = interpretedIngredients,
-            replayTrace = replayCollector.getStages(),
+            ocrBlocks = graphResult.ocrResult?.ocrBlocks ?: emptyList(),
+            ocrLines = graphResult.ocrResult?.reconstructedLines ?: emptyList(),
+            semanticIngredients = graphResult.semanticIngredients,
+            interpretedIngredients = graphResult.interpretedIngredients,
+            replayTrace = graphResult.replayTrace,
             metrics = PipelineMetrics(
                 ocrLatencyMs = ocrLatency,
-                normalizationLatencyMs = semanticResult.normalization.latencyMs,
-                extractionLatencyMs = semanticResult.extraction.latencyMs,
-                groupingLatencyMs = semanticResult.grouping.latencyMs,
-                phraseCorrectionLatencyMs = semanticResult.phraseCorrection.latencyMs,
-                correctionLatencyMs = semanticResult.correction.latencyMs,
+                normalizationLatencyMs = normLatency,
+                extractionLatencyMs = extLatency,
+                groupingLatencyMs = groupLatency,
+                phraseCorrectionLatencyMs = phraseLatency,
+                correctionLatencyMs = corrLatency,
                 totalLatencyMs = totalLatency,
                 memoryUsageKb = usedMemory,
-                averageConfidence = ocrResult.averageConfidence ?: 0.8f
+                averageConfidence = graphResult.ocrResult?.averageConfidence ?: 0.8f
             ),
             preprocessingProfile = PreprocessingProfile(
-                blurScore = ocrResult.blurScore,
-                contrastScore = ocrResult.contrastScore,
-                brightnessScore = ocrResult.brightnessScore,
-                complexityRating = ocrResult.complexityRating,
-                routedStrategy = ocrResult.routedStrategy
+                blurScore = graphResult.ocrResult?.blurScore ?: 0f,
+                contrastScore = graphResult.ocrResult?.contrastScore ?: 0f,
+                brightnessScore = graphResult.ocrResult?.brightnessScore ?: 0f,
+                complexityRating = graphResult.ocrResult?.complexityRating ?: "LOW",
+                routedStrategy = graphResult.ocrResult?.routedStrategy ?: "STANDARD"
             ),
-            failures = pipelineFailures
+            failures = pipelineFailures,
+            allergenInterpretation = routingStageResult?.allergenInterpretation,
+            nutritionInterpretation = routingStageResult?.nutritionInterpretation,
+            storageInterpretation = routingStageResult?.storageInterpretation,
+            metadataInterpretation = routingStageResult?.metadataInterpretation
         )
 
         if (context != null) {

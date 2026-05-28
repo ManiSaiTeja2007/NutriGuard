@@ -17,7 +17,8 @@ data class InterpretedIngredient(
     val trace: InterpretationTrace? = null,
     val resolutionSource: ResolutionSource = ResolutionSource.UNKNOWN,
     val provenance: DatasetProvenance = DatasetProvenance.REAL_WORLD,
-    val calibrationEligible: Boolean = true
+    val calibrationEligible: Boolean = true,
+    val parentCategory: String? = null
 ) {
     val canonicalText: String? get() = canonicalName
 }

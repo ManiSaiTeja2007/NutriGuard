@@ -224,7 +224,8 @@ object IngredientInterpreter {
             trace = trace,
             resolutionSource = rawSource,
             provenance = provenance,
-            calibrationEligible = calibrationEligible
+            calibrationEligible = calibrationEligible,
+            parentCategory = com.example.core.intelligence.ontology.IngredientOntology.getParentCategory(resolvedCanonical)
         )
     }
 

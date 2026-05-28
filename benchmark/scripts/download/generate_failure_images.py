@@ -30,6 +30,8 @@ def main():
     
     generate_image(os.path.join(failure_cases_dir, "fail_001.png"), "OCR TARGET: INS 50O(ii)")
     generate_image(os.path.join(failure_cases_dir, "fail_002.png"), "OCR TARGET: tuimeric")
+    generate_image(os.path.join(failure_cases_dir, "fail_003.png"), "OCR TARGET: insu621")
+    generate_image(os.path.join(failure_cases_dir, "fail_004.png"), "OCR TARGET: haldi")
 
 if __name__ == "__main__":
     main()

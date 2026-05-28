@@ -101,6 +101,13 @@ class DatasetVerificationTest {
         return Pair(true, "Valid PNG image")
     }
 
+    private fun isChecksumCached(file: File, expectedHash: String): Boolean {
+        // Future-proofing checksum cache stub: checks if file metadata suggests it matches without recalculating
+        // E.g., checks a local checksum cache database matching filePath, length, and lastModified.
+        // Currently returns false to run full verification, but enables future incremental validation.
+        return false
+    }
+
     private fun quarantineFile(benchmarkDir: File, file: File, reason: String) {
         val quarantineDir = File(benchmarkDir, "quarantine")
         if (!quarantineDir.exists()) {
@@ -130,7 +137,9 @@ class DatasetVerificationTest {
             "openfoodfacts_additives" to "semantic/real_world/additives.json",
             "openfoodfacts_products" to "semantic/real_world/products.csv",
             "fail_001.png" to "semantic/failure_cases/fail_001.png",
-            "fail_002.png" to "semantic/failure_cases/fail_002.png"
+            "fail_002.png" to "semantic/failure_cases/fail_002.png",
+            "fail_003.png" to "semantic/failure_cases/fail_003.png",
+            "fail_004.png" to "semantic/failure_cases/fail_004.png"
         )
 
         var verifiedFiles = 0
@@ -153,7 +162,11 @@ class DatasetVerificationTest {
 
             // 2. Checksum validation
             val expectedHash = itemJson!!.optString("checksum_sha256")
-            val actualHash = calculateSha256(file)
+            val actualHash = if (isChecksumCached(file, expectedHash)) {
+                expectedHash
+            } else {
+                calculateSha256(file)
+            }
             if (expectedHash != actualHash) {
                 quarantineFile(benchmarkDir, file, "SHA-256 mismatch. Expected: $expectedHash, Actual: $actualHash")
                 fail("Checksum mismatch for ${file.name}. Expected: $expectedHash, Got: $actualHash")
@@ -204,7 +217,7 @@ class DatasetVerificationTest {
         }
         val healthReportFile = File(reportsDir, "health_report.json")
         val healthJson = JSONObject().apply {
-            put("real_world_images", 2)
+            put("real_world_images", 4)
             put("synthetic_images", 0)
             put("mock_images", 0)
             put("verified_checksums", verifiedFiles)
