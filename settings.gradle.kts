@@ -25,3 +25,6 @@ dependencyResolutionManagement {
 rootProject.name = "NutriGuard"
 
 include(":app")
+include(":tools:psp")
+project(":tools:psp").projectDir = file("tools/psp")
+

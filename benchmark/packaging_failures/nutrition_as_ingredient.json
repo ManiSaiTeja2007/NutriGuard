@@ -1,0 +1,38 @@
+[
+  {
+    "failure_id": "FAIL-004a",
+    "observed_text": "Serving Size 1 cup (228g)\nCalories 250\nTotal Fat 12g\nTotal Carbohydrate 31g\nSugars 5g\nProtein 5g",
+    "expected_domain": "NUTRITION",
+    "expected_ingredients": [],
+    "expected_allergens": [],
+    "expected_nutrition": {
+      "calories": "250",
+      "fat": "12g",
+      "sugar": "5g",
+      "protein": "5g"
+    },
+    "expected_warnings": [],
+    "expected_storage": [],
+    "expected_manufacturer": null,
+    "incorrect_interpretation": "Serving Size, Calories, Total Fat parsed as ingredients",
+    "root_cause": "The legacy system has no concept of layout block routing, throwing all extracted text into one sequential ingredient stream."
+  },
+  {
+    "failure_id": "FAIL-004b",
+    "observed_text": "Nutrition Facts\nCalories 120\nTotal Fat 4g\nSugars 18g\nSodium 450mg",
+    "expected_domain": "NUTRITION",
+    "expected_ingredients": [],
+    "expected_allergens": [],
+    "expected_nutrition": {
+      "calories": "120",
+      "fat": "4g",
+      "sugar": "18g",
+      "sodium": "450mg"
+    },
+    "expected_warnings": ["High sugar content: 18g per serving", "High sodium content: 450mg per serving"],
+    "expected_storage": [],
+    "expected_manufacturer": null,
+    "incorrect_interpretation": "Nutrition Facts labels parsed as ingredients",
+    "root_cause": "Nutrition values are processed as flat ingredients, causing multiple false positives."
+  }
+]

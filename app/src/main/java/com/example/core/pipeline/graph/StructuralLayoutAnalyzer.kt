@@ -55,7 +55,9 @@ class StructuralLayoutAnalyzer : ExecutionStage<Bitmap, StructuralLayoutAnalyzer
                 failures.add("Fast OCR failed: ${e.message}")
                 null
             } finally {
-                downsampledBitmap.recycle()
+                if (downsampledBitmap != input) {
+                    downsampledBitmap.recycle()
+                }
             }
 
             val zones = mutableListOf<LayoutZone>()

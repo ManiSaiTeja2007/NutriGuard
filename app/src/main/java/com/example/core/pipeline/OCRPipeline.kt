@@ -220,6 +220,12 @@ class OCRPipeline(
                 preprocessedBitmap?.recycle()
             }
 
+            val savedBitmap = try {
+                if (isTemporary) normalizedBitmap.copy(normalizedBitmap.config ?: android.graphics.Bitmap.Config.ARGB_8888, true) else normalizedBitmap
+            } catch (e: Exception) {
+                null
+            }
+
             if (isTemporary) {
                 normalizedBitmap.recycle()
             }
@@ -268,7 +274,8 @@ class OCRPipeline(
                 brightnessScore = metrics.brightness,
                 complexityRating = metrics.complexityRating,
                 routedStrategy = strategy.name,
-                tileRegions = tileRegions
+                tileRegions = tileRegions,
+                frameBitmap = savedBitmap
             )
 
             OcrInstrumentation.logSuccess(ocrResult)

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "source": "EU Labeling Regulations",
+  "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32011R1169",
+  "country": "Ireland",
+  "language": "en",
+  "domain": "STORAGE",
+  "section_header": "Storage Conditions",
+  "raw_text": "Keep refrigerated at 2°C to 6°C. Once opened, keep refrigerated and consume within 3 days.",
+  "notes": "Mandatory storage instructions for perishable goods.",
+  "relative_position": "BOTTOM",
+  "neighboring_sections": ["MANUFACTURER"]
+}

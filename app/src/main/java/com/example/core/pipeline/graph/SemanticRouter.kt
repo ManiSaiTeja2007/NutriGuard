@@ -35,45 +35,55 @@ class SemanticRouter : ExecutionStage<Unit, RoutingResult> {
         val ingredientTexts = mutableListOf<String>()
 
         for (section in context.classifiedSections) {
+            val linesToProcess = if (section.bodyLines.isEmpty() && section.headerLine != null) {
+                listOf(section.headerLine)
+            } else {
+                section.bodyLines
+            }
+
+            if (linesToProcess.isEmpty()) continue
+
             when (section.type) {
                 SectionType.ALLERGENS -> {
                     context.routingDecisions.add("Route ${section.type} section to AllergenInterpreter")
-                    allergenResult = AllergenInterpreter.interpret(section.bodyLines)
+                    allergenResult = AllergenInterpreter.interpret(linesToProcess)
                 }
                 SectionType.NUTRITION -> {
                     context.routingDecisions.add("Route ${section.type} section to NutritionInterpreter")
-                    nutritionResult = NutritionInterpreter.interpret(section.bodyLines)
+                    nutritionResult = NutritionInterpreter.interpret(linesToProcess)
                 }
                 SectionType.STORAGE -> {
                     context.routingDecisions.add("Route ${section.type} section to StorageInstructionInterpreter")
-                    storageResult = StorageInstructionInterpreter.interpret(section.bodyLines)
+                    storageResult = StorageInstructionInterpreter.interpret(linesToProcess)
                 }
                 SectionType.MANUFACTURER -> {
                     context.routingDecisions.add("Route ${section.type} section to PackagingMetadataInterpreter")
-                    metadataResult = PackagingMetadataInterpreter.interpret(section.bodyLines)
+                    metadataResult = PackagingMetadataInterpreter.interpret(linesToProcess)
                 }
                 SectionType.INGREDIENTS -> {
                     context.routingDecisions.add("Route ${section.type} section to Ingredient Extraction (isolate domain)")
-                    val text = section.bodyLines.joinToString(separator = "\n") { line ->
+                    val text = linesToProcess.joinToString(separator = "\n") { line ->
                         line.words.joinToString(separator = " ") { it.text }
                     }
-                    ingredientTexts.add(text)
+                    if (text.isNotBlank()) {
+                        ingredientTexts.add(text)
+                    }
                 }
                 SectionType.WARNINGS -> {
                     context.routingDecisions.add("Route ${section.type} section to AllergenInterpreter/Warnings")
-                    allergenResult = AllergenInterpreter.interpret(section.bodyLines)
+                    allergenResult = AllergenInterpreter.interpret(linesToProcess)
                 }
                 SectionType.MARKETING -> {
                     context.routingDecisions.add("Skip ${section.type} section (budgeting / low value)")
                 }
                 SectionType.UNKNOWN -> {
-                    val fullText = section.bodyLines.flatMap { it.words }.joinToString(" ") { it.text }.lowercase()
+                    val fullText = linesToProcess.flatMap { it.words }.joinToString(" ") { it.text }.lowercase()
                     if (fullText.contains("ingredient") || fullText.contains("contains")) {
                         context.routingDecisions.add("Route UNKNOWN section to Ingredient Extraction (detected ingredient text)")
                         ingredientTexts.add(fullText)
                     } else if (fullText.contains("allergy") || fullText.contains("may contain")) {
                         context.routingDecisions.add("Route UNKNOWN section to AllergenInterpreter")
-                        allergenResult = AllergenInterpreter.interpret(section.bodyLines)
+                        allergenResult = AllergenInterpreter.interpret(linesToProcess)
                     } else {
                         context.routingDecisions.add("Ignore UNKNOWN section (budgeting)")
                     }
@@ -81,7 +91,8 @@ class SemanticRouter : ExecutionStage<Unit, RoutingResult> {
             }
         }
 
-        if (ingredientTexts.isEmpty() && context.targetedOcrLines.isNotEmpty()) {
+        val hasKnownSections = context.classifiedSections.any { it.type != SectionType.UNKNOWN }
+        if (ingredientTexts.isEmpty() && context.targetedOcrLines.isNotEmpty() && !hasKnownSections) {
             context.routingDecisions.add("Fallback: Route all global lines to Ingredients")
             val text = context.targetedOcrLines.joinToString(separator = "\n") { line ->
                 line.words.joinToString(separator = " ") { it.text }

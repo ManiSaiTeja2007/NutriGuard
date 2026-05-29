@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "source": "Supermarket Packaging Example",
+  "source_url": "https://world.openfoodfacts.org/product/8888010101010/organic-raw-almonds",
+  "country": "Singapore",
+  "language": "en",
+  "domain": "MARKETING",
+  "section_header": "Organic Claims",
+  "raw_text": "Grown in high-altitude, volcanic soils. Non-GMO, gluten-free, 100% organic, hand-harvested almonds representing our commitment to sustainability.",
+  "notes": "Promotional marketing statements that are not mandatory.",
+  "relative_position": "BACK_PANEL",
+  "neighboring_sections": ["WARNING"]
+}

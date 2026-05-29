@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "source": "FDA Labeling Example",
+  "source_url": "https://www.fda.gov/food/food-allergensgluten-free-guidance-documents-regulatory-information/food-allergen-labeling-and-consumer-protection-act-2004-questions-and-answers",
+  "country": "United States",
+  "language": "en",
+  "domain": "ALLERGENS",
+  "section_header": "Contains",
+  "raw_text": "Contains: Wheat, Milk, Soy, Peanuts.",
+  "notes": "US FDA Contains statement situated directly under ingredients.",
+  "relative_position": "MIDDLE",
+  "neighboring_sections": ["INGREDIENTS"]
+}

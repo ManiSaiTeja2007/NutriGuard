@@ -49,7 +49,8 @@ data class OcrResult(
     val brightnessScore: Float = 0f,
     val complexityRating: String = "LOW",
     val routedStrategy: String = "STANDARD",
-    val tileRegions: List<Rect> = emptyList()
+    val tileRegions: List<Rect> = emptyList(),
+    val frameBitmap: Bitmap? = null
 )
 
 data class OcrSegment(

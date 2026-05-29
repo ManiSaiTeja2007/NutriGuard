@@ -15,4 +15,8 @@ object FeatureFlags {
 
     val enableDiagnostics: Boolean
         get() = BuildCapabilities.isDeveloperBuild || BuildCapabilities.isInternalBuild
+
+    // Switch for Stage 13.1 runtime validation and rollback safety
+    val useExecutionGraph: Boolean
+        get() = true
 }

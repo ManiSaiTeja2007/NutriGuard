@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "source": "FDA Food Labels",
+  "source_url": "https://www.fda.gov/food/nutrition-education-resources-materials/new-nutrition-facts-label",
+  "country": "United States",
+  "language": "en",
+  "domain": "NUTRITION",
+  "section_header": "Nutrition Facts",
+  "raw_text": "Serving Size 1 cup (228g)\nCalories 250\nTotal Fat 12g (18% DV)\nSaturated Fat 3g (15% DV)\nTrans Fat 3g\nCholesterol 30mg (10% DV)\nSodium 470mg (20% DV)\nTotal Carbohydrate 31g (10% DV)\nDietary Fiber 0g (0% DV)\nSugars 5g\nProtein 5g",
+  "notes": "Standard US nutrition facts table layout.",
+  "relative_position": "RIGHT",
+  "neighboring_sections": ["INGREDIENTS"]
+}

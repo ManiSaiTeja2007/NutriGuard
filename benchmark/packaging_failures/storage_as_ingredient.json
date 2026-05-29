@@ -1,0 +1,28 @@
+[
+  {
+    "failure_id": "FAIL-005a",
+    "observed_text": "Keep refrigerated at 2°C to 6°C.",
+    "expected_domain": "STORAGE",
+    "expected_ingredients": [],
+    "expected_allergens": [],
+    "expected_nutrition": {},
+    "expected_warnings": [],
+    "expected_storage": ["Keep refrigerated at 2°C to 6°C."],
+    "expected_manufacturer": null,
+    "incorrect_interpretation": "Keep refrigerated parsed as ingredients",
+    "root_cause": "Perishable warnings and temperature settings are not isolated from structural blocks, falling into general ingredient splits."
+  },
+  {
+    "failure_id": "FAIL-005b",
+    "observed_text": "Store in a cool, dry place. Keep away from direct sunlight.",
+    "expected_domain": "STORAGE",
+    "expected_ingredients": [],
+    "expected_allergens": [],
+    "expected_nutrition": {},
+    "expected_warnings": [],
+    "expected_storage": ["Store in a cool, dry place. Keep away from direct sunlight."],
+    "expected_manufacturer": null,
+    "incorrect_interpretation": "Storage instructions parsed as ingredients",
+    "root_cause": "Flat-text parser processes storage sentences, leading to false ingredient matching."
+  }
+]

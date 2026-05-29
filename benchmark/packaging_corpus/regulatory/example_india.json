@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "source": "FSSAI Labeling Regulations",
+  "source_url": "https://fssai.gov.in/upload/notifications/2020/12/5fdc677bb0b5fNotification_Food_Safety_Standards_Labelling_Display_18_12_2020.pdf",
+  "country": "India",
+  "language": "en",
+  "domain": "REGULATORY",
+  "section_header": "FSSAI Licence No",
+  "raw_text": "FSSAI Licence No. 10012022000234. Veg Logo (Green dot inside square).",
+  "notes": "Statutory FSSAI numbers and vegetarian declarations.",
+  "relative_position": "BOTTOM",
+  "neighboring_sections": ["MANUFACTURER"]
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "source": "OpenFoodFacts",
+  "source_url": "https://world.openfoodfacts.org/product/5411188110835/soya-milk-alpro",
+  "country": "Belgium",
+  "language": "en",
+  "domain": "INGREDIENTS",
+  "section_header": "INGREDIENTS",
+  "raw_text": "Soya base (Water, Hulled soya beans (8.7%)), Apple extract, Acidity regulators (Monopotassium phosphate, Dipotassium phosphate), Calcium (Carbonate), Sea salt, Stabiliser (Gellan gum), Vitamins (Riboflavin (B2), B12, D2).",
+  "notes": "European style bolding/highlighting or parenthetical allergen declarations.",
+  "relative_position": "TOP",
+  "neighboring_sections": ["NUTRITION"]
+}

@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "psp_consistency_audit": "docs/psp_consistency_audit.md",
+  "generation_mode": "AUTOMATED",
+  "evidence": [
+    "app/src/main/java/com/example/ui/features/production/ScanViewModel.kt",
+    "app/src/main/java/com/example/core/pipeline/SemanticPipeline.kt",
+    "app/src/main/java/com/example/core/pipeline/PipelineRunner.kt",
+    "app/src/main/java/com/example/core/pipeline/graph/SemanticExecutionGraph.kt",
+    "app/src/main/java/com/example/core/config/FeatureFlags.kt",
+    "app/src/androidTest/java/com/example/verification/PipelineIntegrationSmokeTest.kt",
+    "app/src/androidTest/java/com/example/verification/HeadlessPipelineTest.kt",
+    "docs/pipeline_integration_audit.md",
+    "docs/pipeline_ownership_matrix.md",
+    "docs/integration_readiness.md",
+    "docs/integration_insertion_points.md",
+    "docs/runtime_evidence_log.md",
+    "docs/psp_consistency_audit.md"
+  ],
+  "snapshot_generated_at": "2026-05-29T16:41:56Z",
+  "findings": [
+    {
+      "evidence": "app/src/main/java/com/example/ui/features/production/ScanViewModel.kt",
+      "confidence": "VERIFIED",
+      "finding": "Production runtime executes SemanticExecutionGraph in parallel validation mode"
+    },
+    {
+      "evidence": "app/src/main/java/com/example/ui/features/production/ScanViewModel.kt",
+      "confidence": "VERIFIED",
+      "finding": "Production runtime uses legacy SemanticPipeline"
+    },
+    {
+      "evidence": "app/src/main/java/com/example/ui/features/production/ScanViewModel.kt",
+      "confidence": "VERIFIED",
+      "finding": "SemanticRouter is active under parallel validation"
+    },
+    {
+      "evidence": "app/src/main/java/com/example/core/config/FeatureFlags.kt",
+      "confidence": "VERIFIED",
+      "finding": "FeatureFlags.useExecutionGraph is hardcoded to true \u2014 execution graph always runs in production"
+    },
+    {
+      "evidence": "app/src/main/java/com/example/core/pipeline/PipelineRunner.kt",
+      "confidence": "VERIFIED",
+      "finding": "PipelineRunner instantiates and executes SemanticExecutionGraph in production"
+    },
+    {
+      "evidence": "app/src/androidTest/java/com/example/verification/PipelineIntegrationSmokeTest.kt",
+      "confidence": "VERIFIED",
+      "finding": "PipelineIntegrationSmokeTest passes \u2014 non-empty output, interpretations, and replay trace verified"
+    },
+    {
+      "evidence": "app/src/androidTest/java/com/example/verification/HeadlessPipelineTest.kt",
+      "confidence": "VERIFIED",
+      "finding": "HeadlessPipelineTest passes \u2014 execution graph pipeline stages complete on test asset"
+    },
+    {
+      "evidence": "docs/integration_readiness.md",
+      "confidence": "VERIFIED",
+      "finding": "Integration readiness scorecard completed"
+    },
+    {
+      "evidence": "docs/pipeline_ownership_matrix.md",
+      "confidence": "VERIFIED",
+      "finding": "Pipeline ownership matrix documented"
+    },
+    {
+      "evidence": "docs/integration_insertion_points.md",
+      "confidence": "VERIFIED",
+      "finding": "Integration insertion points defined"
+    },
+    {
+      "evidence": "docs/pipeline_integration_audit.md",
+      "confidence": "VERIFIED",
+      "finding": "Pipeline integration audit performed"
+    }
+  ],
+  "audit_date": "2026-05-29",
+  "audit_mode": "MANUAL",
+  "audit_status": "VERIFIED",
+  "source_file": "benchmark/reports/runtime_audit_report.json"
+}

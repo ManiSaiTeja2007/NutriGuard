@@ -1,0 +1,28 @@
+[
+  {
+    "failure_id": "FAIL-002a",
+    "observed_text": "WARNING: Accidental overdose of iron-containing products is a leading cause of fatal poisoning in children under 6. Keep this product out of reach of children.",
+    "expected_domain": "WARNINGS",
+    "expected_ingredients": [],
+    "expected_allergens": [],
+    "expected_nutrition": {},
+    "expected_warnings": [],
+    "expected_storage": [],
+    "expected_manufacturer": null,
+    "incorrect_interpretation": "Accidental overdose, iron-containing products, fatal poisoning parsed as ingredients",
+    "root_cause": "Warnings on dietary supplement boxes are not classified or isolated, causing the general parser to run on safety warnings."
+  },
+  {
+    "failure_id": "FAIL-002b",
+    "observed_text": "CAUTION: NOT FOR USE BY CHILDREN UNDER 12. KEEP OUT OF REACH OF CHILDREN.",
+    "expected_domain": "WARNINGS",
+    "expected_ingredients": [],
+    "expected_allergens": [],
+    "expected_nutrition": {},
+    "expected_warnings": [],
+    "expected_storage": [],
+    "expected_manufacturer": null,
+    "incorrect_interpretation": "Caution warnings parsed as ingredients list",
+    "root_cause": "No section classification/routing for caution headers, causing general comma-splitting to run on caution warnings."
+  }
+]

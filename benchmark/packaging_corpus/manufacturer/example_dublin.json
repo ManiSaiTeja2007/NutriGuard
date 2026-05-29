@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "source": "OpenFoodFacts Irish Yogurt",
+  "source_url": "https://world.openfoodfacts.org/product/5391515280206/organic-strawberry-yogurt-glenisk",
+  "country": "Ireland",
+  "language": "en",
+  "domain": "MANUFACTURER",
+  "section_header": "Produced By",
+  "raw_text": "Glenisk Creamery, Killeigh, Tullamore, Co. Offaly, Ireland. Tel: 1800 200 400",
+  "notes": "EU food business operator address.",
+  "relative_position": "BOTTOM",
+  "neighboring_sections": ["STORAGE"]
+}

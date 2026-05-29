@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "source": "OpenFoodFacts Mixed Label",
+  "source_url": "https://world.openfoodfacts.org/product/5411188110835/soya-milk-alpro",
+  "country": "United Kingdom",
+  "language": "en",
+  "domain": "MIXED",
+  "section_header": "Mixed Label",
+  "raw_text": "INGREDIENTS: Water, Hulled Soya Beans (8%), Calcium. STORAGE: Refrigerate after opening. Produced by Alpro UK.",
+  "notes": "Composite text containing multiple domains.",
+  "relative_position": "BACK_PANEL",
+  "neighboring_sections": []
+}

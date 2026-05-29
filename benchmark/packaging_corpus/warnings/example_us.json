@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "source": "FDA Warning Statements",
+  "source_url": "https://www.fda.gov/media/82200/download",
+  "country": "United States",
+  "language": "en",
+  "domain": "WARNINGS",
+  "section_header": "WARNING",
+  "raw_text": "WARNING: Accidental overdose of iron-containing products is a leading cause of fatal poisoning in children under 6. Keep this product out of reach of children.",
+  "notes": "Safety warning for iron dietary supplements under FDA regulations.",
+  "relative_position": "BOTTOM",
+  "neighboring_sections": ["REGULATORY"]
+}
