@@ -60,7 +60,11 @@ fun ScanScreen(
     modifier: Modifier = Modifier,
     viewModel: ScanViewModel = viewModel()
 ) {
-    AppHealthMonitor.trackScreenTransition("Scan")
+    // ISSUE-005 FIX: Move side effect out of composition body into LaunchedEffect
+    // to prevent firing on every recomposition.
+    LaunchedEffect(Unit) {
+        AppHealthMonitor.trackScreenTransition("Scan")
+    }
     val uiState by viewModel.uiState.collectAsState()
 
     NutriScreenScaffold(

@@ -5,6 +5,11 @@ import android.graphics.Rect
 import com.example.core.intelligence.correction.FailureType
 import com.example.core.ocr.OCRWord
 import com.example.core.ocr.validation.OcrInputValidator
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Deferred
 
 object TiledOCRProcessor {
 
@@ -45,13 +50,12 @@ object TiledOCRProcessor {
     suspend fun runTiledOcr(
         bitmap: Bitmap,
         ocrRunner: suspend (Bitmap) -> List<OCRWord>
-    ): Pair<List<OCRWord>, List<Rect>> {
+    ): Pair<List<OCRWord>, List<Rect>> = coroutineScope {
         val width = bitmap.width
         val height = bitmap.height
         val rects = slice(width, height)
-        val allWords = mutableListOf<OCRWord>()
 
-        for (rect in rects) {
+        val deferreds: List<Deferred<List<OCRWord>>> = rects.map { rect ->
             // Validate crop parameters before creating a cropped bitmap
             val cropValidation = OcrInputValidator.validateCrop(bitmap, rect)
             if (!cropValidation.isValid) {
@@ -60,36 +64,39 @@ object TiledOCRProcessor {
                 )
             }
 
-            var tileBitmap: Bitmap? = null
-            try {
-                tileBitmap = Bitmap.createBitmap(bitmap, rect.left, rect.top, rect.width(), rect.height())
-                val tileValidation = OcrInputValidator.validate(tileBitmap)
-                if (!tileValidation.isValid) {
-                    throw IllegalStateException(
-                        "Invalid tile bitmap generated: ${tileValidation.message}"
-                    )
-                }
+            val tileBitmap = Bitmap.createBitmap(bitmap, rect.left, rect.top, rect.width(), rect.height())
+            val tileValidation = OcrInputValidator.validate(tileBitmap)
+            if (!tileValidation.isValid) {
+                tileBitmap.recycle()
+                throw IllegalStateException(
+                    "Invalid tile bitmap generated: ${tileValidation.message}"
+                )
+            }
 
-                val words = ocrRunner(tileBitmap)
-                // Offset coordinates back to global space
-                val offsetWords = words.map { word ->
-                    val globalBounds = Rect(
-                        word.bounds.left + rect.left,
-                        word.bounds.top + rect.top,
-                        word.bounds.right + rect.left,
-                        word.bounds.bottom + rect.top
-                    )
-                    OCRWord(word.text, word.confidence, globalBounds)
+            this@coroutineScope.async(Dispatchers.Default) {
+                try {
+                    val words = ocrRunner(tileBitmap)
+                    // Offset coordinates back to global space
+                    words.map { word ->
+                        val globalBounds = Rect(
+                            word.bounds.left + rect.left,
+                            word.bounds.top + rect.top,
+                            word.bounds.right + rect.left,
+                            word.bounds.bottom + rect.top
+                        )
+                        OCRWord(word.text, word.confidence, globalBounds)
+                    }
+                } finally {
+                    tileBitmap.recycle()
                 }
-                allWords.addAll(offsetWords)
-            } finally {
-                tileBitmap?.recycle()
             }
         }
 
+        val allWords = deferreds.awaitAll().flatten()
+
         // Deduplicate words based on Intersection-over-Union (IoU)
         val deduplicated = deduplicateWords(allWords)
-        return Pair(deduplicated, rects)
+        Pair(deduplicated, rects)
     }
 
     private fun deduplicateWords(words: List<OCRWord>): List<OCRWord> {

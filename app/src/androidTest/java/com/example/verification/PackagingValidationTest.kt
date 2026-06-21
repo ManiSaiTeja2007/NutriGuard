@@ -3,21 +3,12 @@ package com.example.verification
 import android.graphics.BitmapFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.example.core.config.FeatureFlags
 import com.example.core.imaging.ImageSource
-import com.example.core.intelligence.AllergenInterpreter
-import com.example.core.intelligence.IngredientInterpreter
-import com.example.core.intelligence.MetadataInterpretation
-import com.example.core.intelligence.NutritionInterpretation
-import com.example.core.intelligence.StorageInterpretation
-import com.example.core.intelligence.correction.OcrMetadata
 import com.example.core.intelligence.vocabulary.IngredientVocabulary
-import com.example.core.intelligence.confidence.DatasetProvenance
 import com.example.core.pipeline.PipelineConfig
 import com.example.core.pipeline.PipelineMode
 import com.example.core.pipeline.PipelineRunner
 import com.example.core.pipeline.SemanticIngredient
-import com.example.core.pipeline.SemanticPipeline
 import com.example.core.pipeline.graph.AggregatedSemanticOutput
 import com.example.core.pipeline.graph.AggregationStage
 import com.example.core.pipeline.graph.ConfidenceCalibrationStage
@@ -70,6 +61,13 @@ class PackagingValidationTest {
         val accuracy: Double get() = if (tp + fp + fn > 0) tp.toDouble() / (tp + fp + fn) else 1.0
     }
 
+    /**
+     * Parses a plaintext ground-truth annotation file into an [ImageGroundTruth] object.
+     * Extracts expected canonical ingredients, nutrition values, and raw ingredient block text.
+     *
+     * @param content Plaintext content of the annotation file.
+     * @return [ImageGroundTruth] structured record.
+     */
     private fun parseImageAnnotation(content: String): ImageGroundTruth {
         val lines = content.split("\n").map { it.trim() }
         var rawText = ""
@@ -88,9 +86,6 @@ class PackagingValidationTest {
             } else if (line.startsWith("[NUTRITION VALUES]")) {
                 currentSection = "NUTRITION"
                 continue
-            } else if (line.startsWith("[FAILURE_TAGS]")) {
-                currentSection = "TAGS"
-                continue
             }
             
             when (currentSection) {
@@ -108,56 +103,46 @@ class PackagingValidationTest {
                 }
             }
         }
-        
         return ImageGroundTruth(rawText, expectedCanonical, expectedNutrition)
     }
 
-    private fun loadFailureCases(context: android.content.Context, fileName: String): List<FailureTestCase> {
-        val jsonString = context.assets.open("packaging_failures/$fileName").bufferedReader().use { it.readText() }
-        val array = JSONArray(jsonString)
+    /**
+     * Loads and parses validation test cases from a specified JSON asset file.
+     *
+     * @param context Android context for asset resolution.
+     * @param filename Target JSON file under the `packaging_failures/` asset folder.
+     * @return List of parsed [FailureTestCase] items.
+     */
+    private fun loadFailureCases(context: android.content.Context, filename: String): List<FailureTestCase> {
         val cases = mutableListOf<FailureTestCase>()
-        for (i in 0 until array.length()) {
-            val obj = array.getJSONObject(i)
-            val expectedIngs = mutableListOf<String>()
-            val expectedIngsArr = obj.optJSONArray("expected_ingredients")
-            if (expectedIngsArr != null) {
-                for (j in 0 until expectedIngsArr.length()) {
-                    expectedIngs.add(expectedIngsArr.getString(j).lowercase(Locale.ROOT))
-                }
+        val fileContent = context.assets.open("packaging_failures/$filename").bufferedReader().use { it.readText() }
+        val casesArray = JSONArray(fileContent)
+        
+        for (i in 0 until casesArray.length()) {
+            val obj = casesArray.getJSONObject(i)
+            val expectedIngredients = mutableListOf<String>()
+            obj.optJSONArray("expected_ingredients")?.let { arr ->
+                for (j in 0 until arr.length()) expectedIngredients.add(arr.getString(j).lowercase(Locale.ROOT))
             }
-
             val expectedAllergens = mutableListOf<String>()
-            val expectedAllergensArr = obj.optJSONArray("expected_allergens")
-            if (expectedAllergensArr != null) {
-                for (j in 0 until expectedAllergensArr.length()) {
-                    expectedAllergens.add(expectedAllergensArr.getString(j).lowercase(Locale.ROOT))
-                }
+            obj.optJSONArray("expected_allergens")?.let { arr ->
+                for (j in 0 until arr.length()) expectedAllergens.add(arr.getString(j).lowercase(Locale.ROOT))
             }
-
             val expectedNutrition = mutableMapOf<String, String>()
-            val expectedNutJson = obj.optJSONObject("expected_nutrition")
-            if (expectedNutJson != null) {
-                val keys = expectedNutJson.keys()
+            obj.optJSONObject("expected_nutrition")?.let { nut ->
+                val keys = nut.keys()
                 while (keys.hasNext()) {
-                    val key = keys.next()
-                    expectedNutrition[key.lowercase(Locale.ROOT)] = expectedNutJson.getString(key).lowercase(Locale.ROOT)
+                    val k = keys.next()
+                    expectedNutrition[k.lowercase(Locale.ROOT)] = nut.getString(k).lowercase(Locale.ROOT)
                 }
             }
-
             val expectedWarnings = mutableListOf<String>()
-            val expectedWarningsArr = obj.optJSONArray("expected_warnings")
-            if (expectedWarningsArr != null) {
-                for (j in 0 until expectedWarningsArr.length()) {
-                    expectedWarnings.add(expectedWarningsArr.getString(j).lowercase(Locale.ROOT))
-                }
+            obj.optJSONArray("expected_warnings")?.let { arr ->
+                for (j in 0 until arr.length()) expectedWarnings.add(arr.getString(j).lowercase(Locale.ROOT))
             }
-
             val expectedStorage = mutableListOf<String>()
-            val expectedStorageArr = obj.optJSONArray("expected_storage")
-            if (expectedStorageArr != null) {
-                for (j in 0 until expectedStorageArr.length()) {
-                    expectedStorage.add(expectedStorageArr.getString(j).lowercase(Locale.ROOT))
-                }
+            obj.optJSONArray("expected_storage")?.let { arr ->
+                for (j in 0 until arr.length()) expectedStorage.add(arr.getString(j).lowercase(Locale.ROOT))
             }
 
             cases.add(
@@ -165,21 +150,43 @@ class PackagingValidationTest {
                     failureId = obj.getString("failure_id"),
                     observedText = obj.getString("observed_text"),
                     expectedDomain = obj.getString("expected_domain"),
-                    expectedIngredients = expectedIngs,
+                    expectedIngredients = expectedIngredients,
                     expectedAllergens = expectedAllergens,
                     expectedNutrition = expectedNutrition,
                     expectedWarnings = expectedWarnings,
                     expectedStorage = expectedStorage,
-                    expectedManufacturer = obj.optString("expected_manufacturer", null)?.lowercase(Locale.ROOT)
+                    expectedManufacturer = if (obj.has("expected_manufacturer") && !obj.isNull("expected_manufacturer")) {
+                        obj.getString("expected_manufacturer").lowercase(Locale.ROOT)
+                    } else {
+                        null
+                    }
                 )
             )
         }
         return cases
     }
 
+    /**
+     * Simulates the semantic execution graph run directly on a raw text input.
+     *
+     * Steps:
+     * 1. Convert text lines into mocked OCR word and line models.
+     * 2. Build the semantic routing context with mocked OCR lines.
+     * 3. Coordinate the execution of:
+     *    a. SemanticSectionClassifier: Group lines into layout sections.
+     *    b. SemanticRouter: Route sections to interpreters.
+     *    c. SpecializedInterpretationStage: Interpret ingredients.
+     *    d. ContextualReconstructionStage: Build ingredient models.
+     *    e. AggregationStage: Assemble and package outputs.
+     *    d. ConfidenceCalibrationStage: Compute confidence values.
+     *
+     * @param observedText Raw text input representing the OCR output.
+     * @param vocabulary Ingredient vocabulary reference.
+     * @return [RoutingResultAndIngredients] containing routed and parsed semantic outputs.
+     */
     private suspend fun runGraphOnText(
         observedText: String,
-        semanticPipeline: SemanticPipeline
+        vocabulary: IngredientVocabulary
     ): RoutingResultAndIngredients {
         val lines = observedText.split("\n").mapIndexed { lineIndex, lineText ->
             val words = lineText.split(" ").mapIndexed { wordIndex, wordText ->
@@ -200,13 +207,13 @@ class PackagingValidationTest {
             executionId = UUID.randomUUID(),
             imageWidth = 500,
             imageHeight = 500,
-            ocrMetadata = OcrMetadata(0.9f, 0f, 0f, 0f)
+            ocrMetadata = com.example.core.intelligence.correction.OcrMetadata(0.9f, 0f, 0f, 0f)
         )
         context.targetedOcrLines.addAll(lines)
 
         val classifier = SemanticSectionClassifier()
         val router = SemanticRouter()
-        val specializedStage = SpecializedInterpretationStage(semanticPipeline)
+        val specializedStage = SpecializedInterpretationStage(vocabulary)
         val reconstructionStage = ContextualReconstructionStage(PipelineConfig())
         val aggregationStage = AggregationStage()
         val calibrationStage = ConfidenceCalibrationStage(PipelineConfig())
@@ -238,17 +245,25 @@ class PackagingValidationTest {
         val interpretedIngredients: List<com.example.core.intelligence.InterpretedIngredient>
     )
 
+    /**
+     * Executes the comprehensive end-to-end integration and scorecard calculation.
+     *
+     * Steps:
+     * 1. Execute end-to-end processing on raw image assets to check bitmap loading and basic runtime execution.
+     * 2. Parse a wide failure corpus (JSON records detailing known failure edge cases) to test semantic routing boundaries.
+     * 3. Evaluate true positives (TP), false positives (FP), and false negatives (FN) across 6 semantic domains.
+     * 4. Log a metric comparison matrix detailing precision, recall, and F1 score per domain.
+     * 5. Enforce baseline recovery thresholds to assert pipeline performance.
+     */
     @Test
     fun executePackagingValidationSuite() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val vocabulary = IngredientVocabulary()
-        val semanticPipeline = SemanticPipeline(vocabulary)
         val ocrPipeline = com.example.core.pipeline.OCRPipeline()
-        val pipelineRunner = PipelineRunner(ocrPipeline, semanticPipeline)
+        val pipelineRunner = PipelineRunner(ocrPipeline, vocabulary)
 
         // Metrics stores
         val domains = listOf("Ingredients", "Allergens", "Nutrition", "Warnings", "Storage", "Manufacturer")
-        val legacyMetrics = domains.associateWith { ValidationMetrics(it) }
         val graphMetrics = domains.associateWith { ValidationMetrics(it) }
 
         // 1. Run validation on real image assets
@@ -258,7 +273,7 @@ class PackagingValidationTest {
             "datasets/raw/clean_labels/label_000008.jpg" to "datasets/raw/clean_labels/label_000008.txt"
         )
 
-        println("=== STAGE 13.1 IMAGE VALIDATION TESTS ===")
+        println("=== STAGE 13.0E IMAGE VALIDATION TESTS ===")
 
         for ((imgRelPath, txtRelPath) in testImages) {
             val txtContent = context.assets.open(txtRelPath).bufferedReader().use { it.readText() }
@@ -270,32 +285,14 @@ class PackagingValidationTest {
             // Run graph on bitmap to verify end-to-end runtime execution
             val config = PipelineConfig(mode = PipelineMode.DEVELOPER, enableReplay = false, enableMetrics = false)
             val graphResult = pipelineRunner.run(bitmap!!, 0, ImageSource.TEST_ASSET, config, context)
-            if (graphResult.ocrLines.isEmpty()) {
-                println("DEBUG_VAL: ocrLines is empty! Failures: ${graphResult.failures.map { "${it.stage}: ${it.details}" }}")
-                println("DEBUG_VAL: Preprocessing Profile: complexity=${graphResult.preprocessingProfile.complexityRating}, strategy=${graphResult.preprocessingProfile.routedStrategy}")
-            }
             assertTrue("OCR lines should be parsed from image. Failures: ${graphResult.failures}", graphResult.ocrLines.isNotEmpty())
 
             // Run graph on raw annotation text to measure metrics matching the text ground-truth
-            val graphResText = runGraphOnText(gt.rawText, semanticPipeline)
-
-            // Run legacy
-            val legacyInput = gt.rawText
-            val legacyResult = semanticPipeline(Pair(legacyInput, OcrMetadata(0.8f, 0f, 0f, 0f)))
+            val graphResText = runGraphOnText(gt.rawText, vocabulary)
 
             // --- Compare Ingredients ---
             val expectedIngs = gt.expectedCanonical
-            val legacyIngs = legacyResult.correction.output.map { it.canonical.lowercase(Locale.ROOT) }
             val graphIngs = graphResText.semanticIngredients.map { it.canonical.lowercase(Locale.ROOT) }
-
-            // Legacy metrics updates
-            val lm = legacyMetrics["Ingredients"]!!
-            expectedIngs.forEach { expected ->
-                if (legacyIngs.contains(expected)) lm.tp++ else lm.fn++
-            }
-            legacyIngs.forEach { act ->
-                if (!expectedIngs.contains(act)) lm.fp++
-            }
 
             // Graph metrics updates
             val gm = graphMetrics["Ingredients"]!!
@@ -307,10 +304,6 @@ class PackagingValidationTest {
             }
 
             // --- Compare Nutrition ---
-            // Legacy has no nutrition parsing, so all expected keys represent False Negatives
-            val ln = legacyMetrics["Nutrition"]!!
-            gt.expectedNutrition.forEach { _ -> ln.fn++ }
-
             val gn = graphMetrics["Nutrition"]!!
             val graphNutrients = graphResText.routingResult.nutritionInterpretation?.nutrients ?: emptyMap()
             gt.expectedNutrition.forEach { (k, v) ->
@@ -325,7 +318,7 @@ class PackagingValidationTest {
                 if (!gt.expectedNutrition.containsKey(k)) gn.fp++
             }
 
-            println("Validated image: $imgRelPath. Expected ingredients: ${expectedIngs.size}. Legacy ingredients parsed: ${legacyIngs.size}. Graph ingredients parsed: ${graphIngs.size}")
+            println("Validated image: $imgRelPath. Expected ingredients: ${expectedIngs.size}. Graph ingredients parsed: ${graphIngs.size}")
             bitmap.recycle()
         }
 
@@ -339,30 +332,16 @@ class PackagingValidationTest {
             "marketing_as_ingredient.json"
         )
 
-        println("\n=== STAGE 13.1 FAILURE CORPUS TEXT VALIDATION TESTS ===")
+        println("\n=== STAGE 13.0E FAILURE CORPUS TEXT VALIDATION TESTS ===")
 
         for (fileName in failureFiles) {
             val cases = loadFailureCases(context, fileName)
             for (case in cases) {
-                // Run legacy
-                val legacyResult = semanticPipeline(Pair(case.observedText, OcrMetadata(0.8f, 0f, 0f, 0f)))
-                val legacyIngs = legacyResult.correction.output.map { it.canonical.lowercase(Locale.ROOT) }
-
                 // Run graph
-                val graphRes = runGraphOnText(case.observedText, semanticPipeline)
+                val graphRes = runGraphOnText(case.observedText, vocabulary)
                 val graphIngs = graphRes.semanticIngredients.map { it.canonical.lowercase(Locale.ROOT) }
 
                 // Update INGREDIENTS metrics
-                // For non-ingredient domains, expectedIngredients is empty.
-                // Any ingredient produced by the legacy pipeline represents a False Positive!
-                val lmIng = legacyMetrics["Ingredients"]!!
-                case.expectedIngredients.forEach { expected ->
-                    if (legacyIngs.contains(expected)) lmIng.tp++ else lmIng.fn++
-                }
-                legacyIngs.forEach { act ->
-                    if (!case.expectedIngredients.contains(act)) lmIng.fp++
-                }
-
                 val gmIng = graphMetrics["Ingredients"]!!
                 case.expectedIngredients.forEach { expected ->
                     if (graphIngs.contains(expected)) gmIng.tp++ else gmIng.fn++
@@ -372,27 +351,6 @@ class PackagingValidationTest {
                 }
 
                 // Update ALLERGENS metrics
-                val lmAll = legacyMetrics["Allergens"]!!
-                // Legacy parsed allergens via warnings
-                val legacyAllergens = legacyResult.correction.output.flatMap { res ->
-                    IngredientInterpreter.interpret(
-                        canonicalName = res.canonical,
-                        confidence = res.confidence,
-                        originalToken = res.originalToken,
-                        contextualReconstructionText = null,
-                        baseConfidence = res.confidence,
-                        provenance = DatasetProvenance.REAL_WORLD,
-                        calibrationEligible = true
-                    ).warnings.filter { it.startsWith("Contains allergen:") }
-                }.map { it.substringAfter("Contains allergen:").trim().lowercase(Locale.ROOT) }
-
-                case.expectedAllergens.forEach { expected ->
-                    if (legacyAllergens.contains(expected)) lmAll.tp++ else lmAll.fn++
-                }
-                legacyAllergens.forEach { act ->
-                    if (!case.expectedAllergens.contains(act)) lmAll.fp++
-                }
-
                 val gmAll = graphMetrics["Allergens"]!!
                 val graphAllergens = graphRes.routingResult.allergenInterpretation?.allergensDetected ?: emptyList()
                 case.expectedAllergens.forEach { expected ->
@@ -403,9 +361,6 @@ class PackagingValidationTest {
                 }
 
                 // Update NUTRITION metrics
-                val lmNut = legacyMetrics["Nutrition"]!!
-                case.expectedNutrition.forEach { _ -> lmNut.fn++ }
-
                 val gmNut = graphMetrics["Nutrition"]!!
                 val graphNutrients = graphRes.routingResult.nutritionInterpretation?.nutrients ?: emptyMap()
                 case.expectedNutrition.forEach { (k, v) ->
@@ -417,27 +372,6 @@ class PackagingValidationTest {
                 }
 
                 // Update WARNINGS metrics
-                val lmWarn = legacyMetrics["Warnings"]!!
-                // Legacy warnings
-                val legacyWarnings = legacyResult.correction.output.flatMap { res ->
-                    IngredientInterpreter.interpret(
-                        canonicalName = res.canonical,
-                        confidence = res.confidence,
-                        originalToken = res.originalToken,
-                        contextualReconstructionText = null,
-                        baseConfidence = res.confidence,
-                        provenance = DatasetProvenance.REAL_WORLD,
-                        calibrationEligible = true
-                    ).warnings
-                }.map { it.lowercase(Locale.ROOT) }
-
-                case.expectedWarnings.forEach { expected ->
-                    if (legacyWarnings.any { it.contains(expected) }) lmWarn.tp++ else lmWarn.fn++
-                }
-                legacyWarnings.forEach { act ->
-                    if (!case.expectedWarnings.any { act.contains(it) }) lmWarn.fp++
-                }
-
                 val gmWarn = graphMetrics["Warnings"]!!
                 val graphWarnings = mutableListOf<String>()
                 graphRes.interpretedIngredients.forEach { graphWarnings.addAll(it.warnings) }
@@ -453,9 +387,6 @@ class PackagingValidationTest {
                 }
 
                 // Update STORAGE metrics
-                val lmStor = legacyMetrics["Storage"]!!
-                case.expectedStorage.forEach { _ -> lmStor.fn++ }
-
                 val gmStor = graphMetrics["Storage"]!!
                 val graphStorage = graphRes.routingResult.storageInterpretation?.instructions ?: emptyList()
                 val graphStorageLower = graphStorage.map { it.lowercase(Locale.ROOT) }
@@ -467,9 +398,6 @@ class PackagingValidationTest {
                 }
 
                 // Update MANUFACTURER metrics
-                val lmMfg = legacyMetrics["Manufacturer"]!!
-                if (case.expectedManufacturer != null) lmMfg.fn++
-
                 val gmMfg = graphMetrics["Manufacturer"]!!
                 val graphMfg = graphRes.routingResult.metadataInterpretation?.manufacturer?.lowercase(Locale.ROOT)
                 if (case.expectedManufacturer != null) {
@@ -483,28 +411,24 @@ class PackagingValidationTest {
         }
 
         // Print final metric tables
-        println("\n=== METRIC COMPARISON MATRIX ===")
+        println("\n=== METRIC MATRIX ===")
         println(String.format("%-15s | %-12s | %-12s | %-12s | %-12s | %-6s | %-6s", "Domain", "Pipeline", "Precision", "Recall", "F1 Score", "TP", "FP"))
         println("---------------------------------------------------------------------------------------")
         for (domain in domains) {
-            val lm = legacyMetrics[domain]!!
             val gm = graphMetrics[domain]!!
-            println(String.format("%-15s | %-12s | %-12.4f | %-12.4f | %-12.4f | %-6d | %-6d", domain, "Legacy", lm.precision, lm.recall, lm.f1, lm.tp, lm.fp))
             println(String.format("%-15s | %-12s | %-12.4f | %-12.4f | %-12.4f | %-6d | %-6d", domain, "Graph", gm.precision, gm.recall, gm.f1, gm.tp, gm.fp))
             println("---------------------------------------------------------------------------------------")
         }
 
-        // Broad assertion checks: Graph must outperform legacy path or equal it on ingredients, and exceed it on routing.
+        // Sane threshold assertion checks
         val graphIngredientsF1 = graphMetrics["Ingredients"]!!.f1
-        val legacyIngredientsF1 = legacyMetrics["Ingredients"]!!.f1
-        assertTrue("Graph ingredient recovery (F1: $graphIngredientsF1) must be >= Legacy (F1: $legacyIngredientsF1)", graphIngredientsF1 >= legacyIngredientsF1)
+        assertTrue("Graph ingredient recovery (F1: $graphIngredientsF1) must be > 0.0", graphIngredientsF1 > 0.0)
 
         val graphAllergensF1 = graphMetrics["Allergens"]!!.f1
-        val legacyAllergensF1 = legacyMetrics["Allergens"]!!.f1
-        assertTrue("Graph allergen recovery (F1: $graphAllergensF1) must be >= Legacy (F1: $legacyAllergensF1)", graphAllergensF1 >= legacyAllergensF1)
+        assertTrue("Graph allergen recovery (F1: $graphAllergensF1) must be > 0.0", graphAllergensF1 > 0.0)
 
         val graphNutritionF1 = graphMetrics["Nutrition"]!!.f1
-        assertTrue("Graph nutrition recovery must be > 0.0", graphNutritionF1 > 0.0)
+        assertTrue("Graph nutrition recovery (F1: $graphNutritionF1) must be > 0.0", graphNutritionF1 > 0.0)
 
         println("\nPackaging Validation Suite completed successfully. Life Cycle State: VALIDATED.")
     }

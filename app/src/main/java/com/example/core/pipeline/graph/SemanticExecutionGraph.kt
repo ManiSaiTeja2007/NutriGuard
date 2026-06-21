@@ -9,6 +9,11 @@ import com.example.core.intelligence.InterpretedIngredient
 import com.example.core.replay.ReplayStageTrace
 import java.util.UUID
 
+/**
+ * Coordinates and executes the structured processing graph of the NutriGuard system.
+ * It chains stages together, keeping state in a [SemanticRoutingContext] and tracking
+ * execution metrics via [ExecutionProfiler].
+ */
 class SemanticExecutionGraph(
     val structuralLayoutAnalyzer: StructuralLayoutAnalyzer,
     val targetedOcrCoordinator: TargetedOcrCoordinator,
@@ -20,10 +25,35 @@ class SemanticExecutionGraph(
     val confidenceCalibrationStage: ConfidenceCalibrationStage,
     val replayGenerationStage: ReplayGenerationStage
 ) {
+    /**
+     * Executes all stages of the semantic interpretation graph in order.
+     *
+     * Execution flow:
+     * 1. Initialize [SemanticRoutingContext] and [ExecutionProfiler].
+     * 2. If [preExistingOcr] is supplied, skip the initial structural analysis and targeted OCR stages,
+     *    directly populating routing lines and block structures.
+     * 3. Else, execute:
+     *    a. [StructuralLayoutAnalyzer]: Analyze image orientation, blur, contrast, and layout zones.
+     *    b. [TargetedOcrCoordinator]: Run character recognition inside identified bounds.
+     * 4. Execute [SemanticSectionClassifier] to group OCR lines into logical blocks.
+     * 5. Execute [SemanticRouter] to detect target semantic fields (Ingredients, Warnings, Nutrition).
+     * 6. Execute [SpecializedInterpretationStage] to run normalizing, parsing, and spelling corrections.
+     * 7. Execute [ContextualReconstructionStage] to map corrected tokens to semantic entities.
+     * 8. Execute [AggregationStage] to aggregate multiple structured outputs.
+     * 9. Execute [ConfidenceCalibrationStage] to score parsing and mapping confidence levels.
+     * 10. Execute [ReplayGenerationStage] to output audit logs for regression testing.
+     *
+     * @param bitmap Standardized raw label bitmap.
+     * @param ocrMetadata Default starting camera and light metadata.
+     * @param executionId Unique UUID of this scan process session.
+     * @param preExistingOcr Cached OCR results from a prior stage (skips OCR if present).
+     * @return [GraphResult] containing the final output models, trace telemetry, and profiles.
+     */
     suspend fun execute(
         bitmap: Bitmap,
         ocrMetadata: OcrMetadata,
-        executionId: UUID = UUID.randomUUID()
+        executionId: UUID = UUID.randomUUID(),
+        preExistingOcr: OcrResult? = null
     ): GraphResult {
         val context = SemanticRoutingContext(
             executionId = executionId,
@@ -34,37 +64,82 @@ class SemanticExecutionGraph(
         val profiler = ExecutionProfiler()
         val stageResults = mutableListOf<StageResult>()
 
-        // 1. Structural Analysis
-        profiler.startStage("structural_analysis")
-        val structuralResult = structuralLayoutAnalyzer.execute(bitmap, context, profiler)
-        profiler.endStage("structural_analysis")
-        stageResults.add(structuralResult)
-
-        // Update ocrMetadata with structural analysis metrics
-        structuralResult.output?.let { metrics ->
+        val ocrResultOutput: OcrResult?
+        if (preExistingOcr != null) {
+            context.targetedOcrBlocks.addAll(preExistingOcr.ocrBlocks)
+            context.targetedOcrLines.addAll(preExistingOcr.reconstructedLines)
             context.ocrMetadata = OcrMetadata(
-                ocrConfidence = 0.8f,
-                blurScore = metrics.blurScore,
-                contrastScore = metrics.contrastScore,
-                brightnessScore = metrics.brightnessScore
+                ocrConfidence = preExistingOcr.averageConfidence ?: 0.8f,
+                blurScore = preExistingOcr.blurScore,
+                contrastScore = preExistingOcr.contrastScore,
+                brightnessScore = preExistingOcr.brightnessScore
             )
-        }
-
-        // 2. Targeted OCR
-        profiler.startStage("targeted_ocr")
-        val ocrResult = targetedOcrCoordinator.execute(bitmap, context, profiler)
-        profiler.endStage("targeted_ocr")
-        stageResults.add(ocrResult)
-
-        // Update ocrMetadata with actual OCR confidence
-        ocrResult.output?.let { ocr ->
-            val prevMetadata = context.ocrMetadata
-            context.ocrMetadata = com.example.core.intelligence.correction.OcrMetadata(
-                ocrConfidence = ocr.averageConfidence ?: 0.8f,
-                blurScore = prevMetadata?.blurScore ?: 0f,
-                contrastScore = prevMetadata?.contrastScore ?: 0f,
-                brightnessScore = prevMetadata?.brightnessScore ?: 0f
+            
+            stageResults.add(
+                ExecutionStageResult(
+                    executionId = executionId,
+                    stageName = "structural_analysis",
+                    output = StructuralLayoutAnalyzer.StructuralAnalysisResult(
+                        blurScore = preExistingOcr.blurScore,
+                        brightnessScore = preExistingOcr.brightnessScore,
+                        contrastScore = preExistingOcr.contrastScore,
+                        textDensity = 0.5f,
+                        orientationDegrees = 0,
+                        heatmap = emptyList(),
+                        zones = emptyList(),
+                        probableHeaders = emptyList()
+                    ),
+                    latencyMs = 0L,
+                    replayArtifacts = mapOf("bypassed" to true)
+                )
             )
+
+            stageResults.add(
+                ExecutionStageResult(
+                    executionId = executionId,
+                    stageName = "targeted_ocr",
+                    output = preExistingOcr,
+                    latencyMs = 0L,
+                    replayArtifacts = mapOf("bypassed" to true)
+                )
+            )
+
+            ocrResultOutput = preExistingOcr
+        } else {
+            // 1. Structural Analysis
+            profiler.startStage("structural_analysis")
+            val structuralResult = structuralLayoutAnalyzer.execute(bitmap, context, profiler)
+            profiler.endStage("structural_analysis")
+            stageResults.add(structuralResult)
+
+            // Update ocrMetadata with structural analysis metrics
+            structuralResult.output?.let { metrics ->
+                context.ocrMetadata = OcrMetadata(
+                    ocrConfidence = 0.8f,
+                    blurScore = metrics.blurScore,
+                    contrastScore = metrics.contrastScore,
+                    brightnessScore = metrics.brightnessScore
+                )
+            }
+
+            // 2. Targeted OCR
+            profiler.startStage("targeted_ocr")
+            val ocrResult = targetedOcrCoordinator.execute(bitmap, context, profiler)
+            profiler.endStage("targeted_ocr")
+            stageResults.add(ocrResult)
+
+            // Update ocrMetadata with actual OCR confidence
+            ocrResult.output?.let { ocr ->
+                val prevMetadata = context.ocrMetadata
+                context.ocrMetadata = com.example.core.intelligence.correction.OcrMetadata(
+                    ocrConfidence = ocr.averageConfidence ?: 0.8f,
+                    blurScore = prevMetadata?.blurScore ?: 0f,
+                    contrastScore = prevMetadata?.contrastScore ?: 0f,
+                    brightnessScore = prevMetadata?.brightnessScore ?: 0f
+                )
+            }
+
+            ocrResultOutput = ocrResult.output
         }
 
         // 3. Section Classification
@@ -127,7 +202,7 @@ class SemanticExecutionGraph(
             context = context,
             stageResults = stageResults,
             profiler = profiler,
-            ocrResult = ocrResult.output,
+            ocrResult = ocrResultOutput,
             semanticIngredients = reconstructionResult.output ?: emptyList(),
             interpretedIngredients = calibrationResult.output ?: emptyList(),
             replayTrace = replayResult.output ?: emptyList(),

@@ -90,6 +90,13 @@ class SessionExporter(
             fileHashes["metadata/metadata.json"] = writer.calculateSha256(metadataFile)
         }
 
+        // 7.5. Grouped Corpus Export
+        val corpusJson = buildCorpusJson(snapshot.result)
+        val corpusFile = writer.writeTextFile(dir, "corpus", "corpus.json", corpusJson)
+        if (corpusFile != null) {
+            fileHashes["corpus/corpus.json"] = writer.calculateSha256(corpusFile)
+        }
+
         // 8. Generate manifest.json (read-only verification index)
         val manifestObj = ExportManifest(
             executionId = executionId,
@@ -101,6 +108,41 @@ class SessionExporter(
         writer.writeTextFile(dir, "", "manifest.json", manifestJson)
 
         return dir.absolutePath
+    }
+
+    private fun buildCorpusJson(result: PipelineResult): String {
+        val root = JSONObject()
+        val allArr = JSONArray()
+        val sectionsObj = JSONObject()
+        
+        // Initialize sections
+        com.example.core.ontology.CorpusClassifier.Section.values().forEach { sec ->
+            sectionsObj.put(sec.displayName, JSONArray())
+        }
+
+        result.interpretedIngredients.forEach { ing ->
+            val original = ing.originalText
+            val canonical = ing.canonicalName ?: ""
+            val section = com.example.core.ontology.CorpusClassifier.classify(canonical)
+            
+            val itemObj = JSONObject().apply {
+                put("original", original)
+                put("canonical", canonical)
+                put("section", section.displayName)
+            }
+            allArr.put(itemObj)
+            
+            val sectionArr = sectionsObj.getJSONArray(section.displayName)
+            val secItemObj = JSONObject().apply {
+                put("original", original)
+                put("canonical", canonical)
+            }
+            sectionArr.put(secItemObj)
+        }
+        
+        root.put("all", allArr)
+        root.put("sections", sectionsObj)
+        return root.toString(2)
     }
 
     private fun renderOverlayToBitmap(preprocessedImagePath: String?, ocrLines: List<com.example.core.ocr.OCRLine>): Bitmap? {

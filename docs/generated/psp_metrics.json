@@ -1,12 +1,12 @@
 {
   "schema_version": "1.0",
   "generation_mode": "AUTOMATED",
-  "tests_passed": 43,
-  "last_sync": "2026-05-29",
-  "last_runtime_audit": "2026-05-29",
+  "tests_passed": 36,
+  "last_sync": "2026-06-18",
+  "last_runtime_audit": "2026-05-30",
   "psp_status": "GREEN",
-  "snapshot_generated_at": "2026-05-29T16:41:56Z",
-  "generated_at": "2026-05-29T16:41:56Z",
+  "snapshot_generated_at": "2026-06-18T06:42:38Z",
+  "generated_at": "2026-06-18T06:42:38Z",
   "psp_version": "1.0",
   "tests_failed": 0,
   "data_sources": [

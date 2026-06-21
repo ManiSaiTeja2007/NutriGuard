@@ -1,89 +1,94 @@
 #!/usr/bin/env python3
+import sys
 import os
-import json
-from datetime import datetime
+from pathlib import Path
 
-# Target paths
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-RAW_DIR = os.path.join(BASE_DIR, "raw", "openfoodfacts")
-PROCESSED_OCR_DIR = os.path.join(BASE_DIR, "processed", "ocr_ground_truth")
-PROCESSED_NORM_DIR = os.path.join(BASE_DIR, "processed", "normalized_ground_truth")
-PROCESSED_CANON_DIR = os.path.join(BASE_DIR, "processed", "canonical_ground_truth")
+# Setup paths for imports
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parents[2] # d:\projects\Ongoing\nutriguard
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-# Ensure processed target folders exist
-os.makedirs(PROCESSED_OCR_DIR, exist_ok=True)
-os.makedirs(PROCESSED_NORM_DIR, exist_ok=True)
-os.makedirs(PROCESSED_CANON_DIR, exist_ok=True)
-
-RAW_FILE = os.path.join(RAW_DIR, "off_products_subset.json")
+from benchmark.scripts.benchmark.pipeline_stages import TextNormalizer, IngredientExtractor, IngredientCanonicalizer, IngredientVocabulary
 
 def preprocess():
     print("[*] Beginning dataset preprocessing pipeline...")
     
-    if not os.path.exists(RAW_FILE):
-        print(f"[-] Raw file not found: {RAW_FILE}")
-        print("    Please run download_openfoodfacts.py first.")
+    datasets_dir = PROJECT_ROOT / "benchmark" / "datasets"
+    raw_dir = datasets_dir / "raw"
+    processed_dir = datasets_dir / "processed"
+    
+    normalized_dir = processed_dir / "normalized"
+    canonical_dir = processed_dir / "canonical"
+    
+    # Ensure processed target folders exist
+    normalized_dir.mkdir(parents=True, exist_ok=True)
+    canonical_dir.mkdir(parents=True, exist_ok=True)
+    
+    if not raw_dir.exists():
+        print(f"[-] Raw directory not found: {raw_dir}")
         return
         
-    try:
-        with open(RAW_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            
-        products = data.get("products", [])
-        print(f"[+] Found {len(products)} products in raw OpenFoodFacts JSON.")
-        
-        ground_truth_records = []
-        
-        for idx, product in enumerate(products):
-            # Extract basic product details
-            prod_name = product.get("product_name", "Unknown Product")
-            ingredients_text = product.get("ingredients_text_en", product.get("ingredients_text", ""))
-            
-            if not ingredients_text:
+    vocab_engine = IngredientVocabulary()
+    vocabulary = vocab_engine.get_vocabulary()
+    
+    txt_files = list(raw_dir.glob("**/*.txt"))
+    print(f"[+] Found {len(txt_files)} raw annotation files to process.")
+    
+    processed_count = 0
+    for txt_path in txt_files:
+        try:
+            # Skip if the text file is inside the processed directory itself (in case glob matches them)
+            if "processed" in txt_path.parts:
                 continue
                 
-            # Create a mock label image name based on index
-            image_name = f"label_{idx:03d}.jpg"
-            
-            # Simple tokenization for expected lists (lowercase, clean spaces, split by comma)
-            expected_ingredients = []
-            for token in ingredients_text.split(","):
-                clean_tok = token.strip().lower().rstrip(".").rstrip(",")
-                if clean_tok and not clean_tok.startswith("ingredients"):
-                    expected_ingredients.append(clean_tok)
-                    
-            # Basic canonical mapping placeholder
-            expected_canonical = []
-            for ing in expected_ingredients:
-                if "sodium chloride" in ing or "baking soda" in ing:
-                    expected_canonical.append("salt" if "sodium chloride" in ing else "sodium bicarbonate")
-                else:
-                    expected_canonical.append(ing)
-            
-            # Standardized Ground Truth Schema
-            record = {
-                "image": image_name,
-                "product_name": prod_name,
-                "ground_truth_text": ingredients_text,
-                "expected_ingredients": expected_ingredients,
-                "expected_canonical": expected_canonical
-            }
-            
-            ground_truth_records.append(record)
-            
-        # Write OCR Ground Truth Annotation files
-        for record in ground_truth_records:
-            record_name = record["image"].replace(".jpg", ".json")
-            
-            # Save into ocr_ground_truth
-            with open(os.path.join(PROCESSED_OCR_DIR, record_name), "w", encoding="utf-8") as out:
-                json.dump(record, out, indent=2)
+            with open(txt_path, "r", encoding="utf-8") as f:
+                content = f.read()
                 
-        print(f"[+] Exported {len(ground_truth_records)} ground truth files to: {PROCESSED_OCR_DIR}")
-        print("[+] Preprocessing pipeline completed successfully.")
-        
-    except Exception as e:
-        print(f"[-] Preprocessing failed: {e}")
+            # Extract raw ingredients section
+            raw_ingredients_text = ""
+            if "[RAW INGREDIENTS]" in content:
+                parts = content.split("[RAW INGREDIENTS]")
+                if len(parts) > 1:
+                    rest = parts[1]
+                    # split by next marker
+                    next_markers = ["[EXPECTED CANONICAL]", "[NUTRITION VALUES]", "[FAILURE_TAGS]"]
+                    for marker in next_markers:
+                        if marker in rest:
+                            rest = rest.split(marker)[0]
+                    raw_ingredients_text = rest.strip()
+            
+            if not raw_ingredients_text:
+                continue
+                
+            # Extract raw section (remove headers)
+            extracted_section = IngredientExtractor.extract_raw_section(raw_ingredients_text)
+            
+            # Normalize text
+            normalized_text = TextNormalizer.normalize(extracted_section)
+            
+            # Save normalized text
+            norm_output_path = normalized_dir / f"{txt_path.stem}_normalized.txt"
+            with open(norm_output_path, "w", encoding="utf-8") as out:
+                out.write(normalized_text)
+                
+            # Tokenize normalized text
+            tokens = IngredientExtractor.tokenize(normalized_text, vocabulary)
+            
+            # Canonicalize tokens
+            canonical_tokens = [IngredientCanonicalizer.canonicalize(t) for t in tokens if t.strip()]
+            canonical_text = "\n".join(canonical_tokens)
+            
+            # Save canonical text
+            canon_output_path = canonical_dir / f"{txt_path.stem}_canonical.txt"
+            with open(canon_output_path, "w", encoding="utf-8") as out:
+                out.write(canonical_text)
+                
+            processed_count += 1
+        except Exception as e:
+            print(f"[-] Failed to preprocess {txt_path.name}: {e}")
+            
+    print(f"[+] Successfully preprocessed {processed_count} files into normalized and canonical directories.")
 
 if __name__ == "__main__":
     preprocess()

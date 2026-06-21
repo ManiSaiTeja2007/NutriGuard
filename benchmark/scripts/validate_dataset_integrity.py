@@ -41,6 +41,52 @@ CATEGORIES = {
 NAMING_REGEX = re.compile(r"^label_\d{6}\.jpg$")
 
 def get_image_dimensions(image_path: Path):
+    # Try parsing PNG and JPEG binary headers first to avoid PIL dependency.
+    try:
+        with open(image_path, "rb") as f:
+            head = f.read(24)
+            # PNG check
+            if head.startswith(b"\x89PNG\r\n\x1a\n"):
+                import struct
+                # Width at 16, Height at 20 (4 bytes each, big endian)
+                w, h = struct.unpack(">II", head[16:24])
+                return int(w), int(h)
+            # JPEG check
+            elif head.startswith(b"\xff\xd8"):
+                import struct
+                f.seek(2)
+                while True:
+                    marker_header = f.read(4)
+                    if len(marker_header) < 4:
+                        break
+                    # A marker is 0xFF followed by byte (not 0x00 or 0xFF)
+                    if marker_header[0] != 0xff:
+                        # Scan forward for 0xFF
+                        f.seek(-3, 1)
+                        single = f.read(1)
+                        if not single:
+                            break
+                        if single[0] != 0xff:
+                            continue
+                        marker_header = b"\xff" + f.read(3)
+                        if len(marker_header) < 4:
+                            break
+
+                    marker = marker_header[1]
+                    length = struct.unpack(">H", marker_header[2:4])[0]
+                    # SOF markers: 0xC0-0xC3, 0xC5-0xC7, 0xC9-0xCB, 0xCD-0xCF
+                    if marker in (0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf):
+                        sof_data = f.read(5)
+                        if len(sof_data) == 5:
+                            h, w = struct.unpack(">HH", sof_data[1:5])
+                            return int(w), int(h)
+                        break
+                    else:
+                        f.seek(length - 2, 1)
+    except Exception:
+        pass
+
+    # Fallback to PIL
     try:
         from PIL import Image
         with Image.open(image_path) as img:
@@ -288,6 +334,18 @@ def validate_and_split():
                 print(f"  [-] WARNING: Failed to read/parse replay {r_file.name}: {e}")
     
     print("\n[+] Verification and manifest generation finished successfully!")
+
+    # 7. Run preprocess_datasets.py automatically
+    print("\n--- Running Preprocessing Pipeline ---")
+    preprocess_script = SCRIPT_DIR / "preprocess" / "preprocess_datasets.py"
+    if preprocess_script.exists():
+        import subprocess
+        res = subprocess.run([sys.executable, str(preprocess_script)], capture_output=True, text=True)
+        print(res.stdout)
+        if res.returncode != 0:
+            print(res.stderr, file=sys.stderr)
+    else:
+        print(f"[-] Warning: preprocess_datasets.py not found at {preprocess_script}")
 
 if __name__ == "__main__":
     validate_and_split()

@@ -1,81 +1,57 @@
 {
   "schema_version": "1.0",
-  "psp_consistency_audit": "docs/psp_consistency_audit.md",
   "generation_mode": "AUTOMATED",
   "evidence": [
     "app/src/main/java/com/example/ui/features/production/ScanViewModel.kt",
-    "app/src/main/java/com/example/core/pipeline/SemanticPipeline.kt",
+    "app/src/main/java/com/example/ui/features/production/ResultsScreen.kt",
     "app/src/main/java/com/example/core/pipeline/PipelineRunner.kt",
     "app/src/main/java/com/example/core/pipeline/graph/SemanticExecutionGraph.kt",
-    "app/src/main/java/com/example/core/config/FeatureFlags.kt",
-    "app/src/androidTest/java/com/example/verification/PipelineIntegrationSmokeTest.kt",
-    "app/src/androidTest/java/com/example/verification/HeadlessPipelineTest.kt",
-    "docs/pipeline_integration_audit.md",
-    "docs/pipeline_ownership_matrix.md",
-    "docs/integration_readiness.md",
-    "docs/integration_insertion_points.md",
-    "docs/runtime_evidence_log.md",
-    "docs/psp_consistency_audit.md"
+    "app/src/main/java/com/example/core/pipeline/OCRPipeline.kt",
+    "app/src/main/java/com/example/core/pipeline/graph/TargetedOcrCoordinator.kt",
+    "app/src/androidTest/java/com/example/verification/production/ProductionSeparationTest.kt",
+    "docs/performance_truth_audit.md",
+    "docs/ocr_bottleneck_audit.md",
+    "docs/navigation_streamlining_audit.md",
+    "docs/developer_ui_audit.md",
+    "docs/pipeline_truth_audit.md",
+    "docs/resource_audit.md",
+    "docs/file_streamlining_audit.md",
+    "docs/test_hardening_audit.md"
   ],
-  "snapshot_generated_at": "2026-05-29T16:41:56Z",
+  "snapshot_generated_at": "2026-06-18T06:42:38Z",
   "findings": [
     {
       "evidence": "app/src/main/java/com/example/ui/features/production/ScanViewModel.kt",
       "confidence": "VERIFIED",
-      "finding": "Production runtime executes SemanticExecutionGraph in parallel validation mode"
+      "finding": "Production runtime executes SemanticExecutionGraph as the sole runtime authority"
+    },
+    {
+      "evidence": "app/src/main/java/com/example/core/pipeline/OCRPipeline.kt",
+      "confidence": "VERIFIED",
+      "finding": "Direct OCR path implemented in OCRPipeline to bypass tiling and visual preprocessing on zoned crops"
+    },
+    {
+      "evidence": "app/src/main/java/com/example/core/pipeline/graph/TargetedOcrCoordinator.kt",
+      "confidence": "VERIFIED",
+      "finding": "TargetedOcrCoordinator refactored to invoke runDirectOcr, eliminating tiling sequential MLKit latency"
     },
     {
       "evidence": "app/src/main/java/com/example/ui/features/production/ScanViewModel.kt",
       "confidence": "VERIFIED",
-      "finding": "Production runtime uses legacy SemanticPipeline"
+      "finding": "ScanViewModel lazy-loads dictionary databases and model clients, reducing app cold start duration"
     },
     {
-      "evidence": "app/src/main/java/com/example/ui/features/production/ScanViewModel.kt",
+      "evidence": "app/src/main/java/com/example/ui/features/production/ResultsScreen.kt",
       "confidence": "VERIFIED",
-      "finding": "SemanticRouter is active under parallel validation"
+      "finding": "ResultsScreen UI streamlined to remove duplicate action rows and gate diagnostics behind Developer Mode"
     },
     {
-      "evidence": "app/src/main/java/com/example/core/config/FeatureFlags.kt",
+      "evidence": "app/src/androidTest/java/com/example/verification/production/ProductionSeparationTest.kt",
       "confidence": "VERIFIED",
-      "finding": "FeatureFlags.useExecutionGraph is hardcoded to true \u2014 execution graph always runs in production"
-    },
-    {
-      "evidence": "app/src/main/java/com/example/core/pipeline/PipelineRunner.kt",
-      "confidence": "VERIFIED",
-      "finding": "PipelineRunner instantiates and executes SemanticExecutionGraph in production"
-    },
-    {
-      "evidence": "app/src/androidTest/java/com/example/verification/PipelineIntegrationSmokeTest.kt",
-      "confidence": "VERIFIED",
-      "finding": "PipelineIntegrationSmokeTest passes \u2014 non-empty output, interpretations, and replay trace verified"
-    },
-    {
-      "evidence": "app/src/androidTest/java/com/example/verification/HeadlessPipelineTest.kt",
-      "confidence": "VERIFIED",
-      "finding": "HeadlessPipelineTest passes \u2014 execution graph pipeline stages complete on test asset"
-    },
-    {
-      "evidence": "docs/integration_readiness.md",
-      "confidence": "VERIFIED",
-      "finding": "Integration readiness scorecard completed"
-    },
-    {
-      "evidence": "docs/pipeline_ownership_matrix.md",
-      "confidence": "VERIFIED",
-      "finding": "Pipeline ownership matrix documented"
-    },
-    {
-      "evidence": "docs/integration_insertion_points.md",
-      "confidence": "VERIFIED",
-      "finding": "Integration insertion points defined"
-    },
-    {
-      "evidence": "docs/pipeline_integration_audit.md",
-      "confidence": "VERIFIED",
-      "finding": "Pipeline integration audit performed"
+      "finding": "Redundant instrumented tests merged to form a non-duplicative, authoritative validation suite"
     }
   ],
-  "audit_date": "2026-05-29",
+  "audit_date": "2026-05-30",
   "audit_mode": "MANUAL",
   "audit_status": "VERIFIED",
   "source_file": "benchmark/reports/runtime_audit_report.json"

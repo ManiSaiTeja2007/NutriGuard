@@ -7,9 +7,9 @@ This document serves as Mission Control for the Project State Package (PSP). It 
 
 # PSP Metadata
 * **PSP Version**: 1.0
-* **Current Stage**: Stage 13.1 — Packaging Intelligence Validation (COMPLETE)
-* **Last PSP Sync**: 2026-05-29
-* **Last Runtime Audit**: 2026-05-29
+* **Current Stage**: Stage 13.0E — Platform Hardening, Performance Optimization & UX Streamlining
+* **Last PSP Sync**: 2026-05-30
+* **Last Runtime Audit**: 2026-05-30
 * **Documentation Status**: 🟢 GREEN
 * **PSP Status**: 🟢 GREEN (Last audited 0 days ago; threshold: < 30 days)
 * **PSP Maturity**: **Level 3 (Runtime Visibility)** (Target: Level 4 — Continuous Intelligence)
@@ -108,21 +108,23 @@ No future development phase is considered complete until the following criteria 
 
 
 ## CURRENT STAGE DASHBOARD
-
+ 
 | Metric | Details |
 | :--- | :--- |
-| **Current Stage** | **Stage 13.1 — Packaging Intelligence Validation** |
-| **Current Objective**| Prove that the execution graph and domain routing outperform legacy flat-text pipeline with ground truth validation suite, metrics, and lifecycle states |
-| **Previous Stage** | **Stage 13.0B — Runtime Convergence Implementation** (COMPLETED) |
-| **Next Stage** | **Stage 13.2 — Domain Routing & Multi-lingual Expansion** |
-
-### Stage 13.1 Exit Gate Checklist
-* [x] **Introduce Ground Truth**: Validation corpus and failures contain expected outputs for all domains.
-* [x] **Add Metrics**: Measure Precision, Recall, F1, Accuracy, FP, FN per domain.
-* [x] **Add Validation Lifecycle State**: Add VALIDATED lifecycle stage between WIRED_PROD and VERIFIED_PROD.
-* [x] **Expand packaging_validation_report.md**: Full metrics comparisons and remaining failures documented.
-* [x] **Add Real Device Validation**: Evidence of developer runtime verification from real scans.
-* [x] **Stage 13.2 Entry Gate Checked**: Graph outperforms legacy, evidence collected, PSP synchronized.
+| **Current Stage** | **Stage 13.0D — Complete Runtime Integration, Convergence & Streamlining** |
+| **Current Objective**| Converge all execution paths into a single authoritative runtime architecture (the staged execution graph managed by `PipelineRunner`), removing duplicate legacy processing and difference logging, while maintaining rollback safety and introducing the Stage 13.0D.5 Legacy Retirement Gate. |
+| **Previous Stage** | **Stage 13.1 — Packaging Intelligence Validation** (COMPLETED) |
+| **Next Stage** | **Stage 13.0D.5 — Legacy Retirement** |
+ 
+### Stage 13.0D Exit Gate Checklist
+* [x] **PipelineRunner Authoritative**: Unified runtime path is active for scan ingestion.
+* [x] **SemanticExecutionGraph Authoritative**: Execution graph drives all 8 stages.
+* [x] **SemanticRouter Authoritative**: Active for domain routing.
+* [x] **Duplicate Runtime Outputs Removed**: Zero parallel run or redundant output mapping in ScanViewModel.
+* [x] **Test Convergence Complete**: Redundant regression tests deleted/consolidated into DriftMetricsTest.
+* [x] **File Ownership Matrix Complete**: Major files cataloged and classified under SSOT rules.
+* [x] **Runtime Execution Proof Complete**: Call-chain verified with direct code evidence.
+* [x] **Connected Android Tests Pass**: Verification test suites run and succeed on emulator.
 * [x] **PSP Synchronized**: All documents updated and verification snapshots generated via `pspRefresh`.
 
 ---

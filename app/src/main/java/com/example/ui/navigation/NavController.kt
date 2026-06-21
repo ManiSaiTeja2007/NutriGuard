@@ -21,9 +21,19 @@ class NavController(initialScreen: Screen = Screen.Home) {
 
     fun navigateTo(screen: Screen) {
         val target = filterScreen(screen)
+        // ISSUE-006 FIX: Prevent pushing the same screen class consecutively (no-op duplicate nav).
+        // Also cap backstack depth at 10 to prevent unbounded growth during rapid navigation.
+        if (backStack.isNotEmpty() && backStack.last()::class == target::class) {
+            currentScreen = target
+            return
+        }
+        if (backStack.size >= 10) {
+            backStack.removeAt(0)  // Drop oldest entry to maintain the cap
+        }
         backStack.add(currentScreen)
         currentScreen = target
     }
+
 
     fun popBackStack(): Boolean {
         if (backStack.isNotEmpty()) {

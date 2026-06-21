@@ -58,24 +58,43 @@ sealed class ImageFrame {
         }
     }
 
+    /**
+     * Converts the current frame representation into a standardized, upright Bitmap.
+     * If the source is a CameraXFrame, it converts YUV pixels into a Jpeg-compressed stream
+     * and decodes it, rotating it to match target degree orientation.
+     * Reusable intermediates are recycled on rotation to prevent bitmap memory leaks.
+     *
+     * @return Standardized upright [Bitmap], or null on conversion failure.
+     */
     fun toNormalisedBitmap(): Bitmap? {
         return when (this) {
             is BitmapFrame -> {
-                rotateBitmap(this.bitmap, this.rotationDegrees)
+                rotateBitmap(this.bitmap, this.rotationDegrees, recycleInput = false)
             }
             is CameraXFrame -> {
                 val bitmap = this.imageProxy.toBitmapCompat() ?: return null
-                rotateBitmap(bitmap, this.rotationDegrees)
+                rotateBitmap(bitmap, this.rotationDegrees, recycleInput = true)
             }
         }
     }
 
-    private fun rotateBitmap(bitmap: Bitmap, degrees: Int): Bitmap {
+    /**
+     * Rotates a bitmap by the specified angle. Recycles the input bitmap to avoid memory leaks
+     * if requested and rotation changes the instance.
+     */
+    private fun rotateBitmap(bitmap: Bitmap, degrees: Int, recycleInput: Boolean): Bitmap {
         if (degrees == 0) return bitmap
         val matrix = android.graphics.Matrix().apply { postRotate(degrees.toFloat()) }
-        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        if (recycleInput && rotated != bitmap) {
+            bitmap.recycle()
+        }
+        return rotated
     }
 
+    /**
+     * Converts an [ImageProxy] frame in YUV_420_888 format to an un-rotated JPEG decoded Bitmap.
+     */
     private fun androidx.camera.core.ImageProxy.toBitmapCompat(): Bitmap? {
         val image = this.image ?: return null
         val nv21 = yuv420ToNv21(image)
@@ -86,6 +105,9 @@ sealed class ImageFrame {
         return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
     }
 
+    /**
+     * Helper to extract NV21 byte arrays from a YUV image buffer.
+     */
     private fun yuv420ToNv21(image: android.media.Image): ByteArray {
         val width = image.width
         val height = image.height

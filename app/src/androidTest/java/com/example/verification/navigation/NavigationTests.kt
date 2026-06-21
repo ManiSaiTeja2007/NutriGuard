@@ -34,8 +34,8 @@ class NavigationTests {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("settings_screen").assertExists()
 
-        // Navigate back using Espresso.pressBack()
-        androidx.test.espresso.Espresso.pressBack()
+        // Navigate back using onBackPressedDispatcher
+        composeTestRule.activity.onBackPressedDispatcher.onBackPressed()
         composeTestRule.waitForIdle()
 
         // Assert we are back on Home Screen
@@ -52,8 +52,8 @@ class NavigationTests {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("about_screen").assertExists()
 
-        // Navigate back using Espresso.pressBack()
-        androidx.test.espresso.Espresso.pressBack()
+        // Navigate back using onBackPressedDispatcher
+        composeTestRule.activity.onBackPressedDispatcher.onBackPressed()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("home_screen").assertExists()
     }

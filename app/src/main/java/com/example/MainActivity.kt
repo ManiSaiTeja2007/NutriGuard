@@ -48,12 +48,22 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // CRASH-007 FIX: super.onCreate() must be called before any initialization
+        // that depends on Activity internals (theme, window, content resolver).
+        super.onCreate(savedInstanceState)
+
         // Initialize persistent settings repository via DataStore
         val settingsRepository = SettingsRepository(applicationContext)
         AppSettings.initialize(applicationContext, settingsRepository)
         com.example.core.utils.AssetLoader.initialize(applicationContext)
 
-        super.onCreate(savedInstanceState)
+        // ISSUE-008 FIX: Warm up the ontology dataset on a background thread
+        // so the first scan does not incur the JSON parse latency.
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                com.example.core.ontology.OntologyRepository.getAll()
+            } catch (_: Throwable) { /* warm-up failure is non-fatal */ }
+        }
 
         setContent {
             val themeMode = AppSettings.themePreference
@@ -148,45 +158,21 @@ class MainActivity : ComponentActivity() {
                                     navController = navController,
                                     onOpenDrawer = { scope.launch { drawerState.open() } }
                                 )
-                                is Screen.DeveloperTools -> {
-                                    if (com.example.core.config.BuildCapabilities.isProductionBuild) {
-                                        HomeScreen(
-                                            navController = navController,
-                                            onOpenDrawer = { scope.launch { drawerState.open() } }
-                                        )
-                                    } else {
-                                        DeveloperToolsScreen(
-                                            navController = navController,
-                                            onOpenDrawer = { scope.launch { drawerState.open() } }
-                                        )
-                                    }
-                                }
-                                is Screen.ReplayViewer -> {
-                                    if (com.example.core.config.BuildCapabilities.isProductionBuild) {
-                                        HomeScreen(
-                                            navController = navController,
-                                            onOpenDrawer = { scope.launch { drawerState.open() } }
-                                        )
-                                    } else {
-                                        ReplayViewerScreen(
-                                            replayId = screen.replayId,
-                                            navController = navController
-                                        )
-                                    }
-                                }
-                                is Screen.BenchmarkRunner -> {
-                                    if (com.example.core.config.BuildCapabilities.isProductionBuild) {
-                                        HomeScreen(
-                                            navController = navController,
-                                            onOpenDrawer = { scope.launch { drawerState.open() } }
-                                        )
-                                    } else {
-                                        BenchmarkRunnerScreen(
-                                            navController = navController,
-                                            onOpenDrawer = { scope.launch { drawerState.open() } }
-                                        )
-                                    }
-                                }
+                                // ISSUE-007 FIX: NavController.filterScreen() already redirects
+                                // forbidden screens to Screen.Home in production builds.
+                                // These branches only execute in developer/benchmark builds.
+                                is Screen.DeveloperTools -> DeveloperToolsScreen(
+                                    navController = navController,
+                                    onOpenDrawer = { scope.launch { drawerState.open() } }
+                                )
+                                is Screen.ReplayViewer -> ReplayViewerScreen(
+                                    replayId = screen.replayId,
+                                    navController = navController
+                                )
+                                is Screen.BenchmarkRunner -> BenchmarkRunnerScreen(
+                                    navController = navController,
+                                    onOpenDrawer = { scope.launch { drawerState.open() } }
+                                )
                             }
                         }
                     }

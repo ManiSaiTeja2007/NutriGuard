@@ -11,6 +11,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
+import androidx.compose.ui.platform.testTag
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NutriScreenScaffold(
@@ -32,7 +34,10 @@ fun NutriScreenScaffold(
                             Icon(imageVector = NutriIcons.Menu, contentDescription = "Open Menu")
                         }
                     } else if (onBack != null) {
-                        IconButton(onClick = onBack) {
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.testTag("results_back_button")
+                        ) {
                             Icon(imageVector = NutriIcons.Back, contentDescription = "Back")
                         }
                     }

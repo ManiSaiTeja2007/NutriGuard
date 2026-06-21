@@ -1,7 +1,10 @@
 package com.example
 
 import com.example.core.ingredient.*
-import com.example.core.pipeline.SemanticPipeline
+import com.example.core.pipeline.graph.SpecializedInterpretationStage
+import com.example.core.pipeline.graph.RoutingResult
+import com.example.core.pipeline.graph.SemanticRoutingContext
+import com.example.core.pipeline.graph.ExecutionProfiler
 import com.example.core.intelligence.correction.OcrMetadata
 import com.example.core.intelligence.vocabulary.IngredientVocabulary
 import com.example.core.normalization.TextNormalizer
@@ -10,9 +13,14 @@ import com.example.core.ocr.routing.OCRComplexityAnalyzer
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import java.util.UUID
 
 class TextIntelligenceTest {
 
+    /**
+     * Verifies text normalization operations: casing unification, collapse of extra spaces,
+     * hyphen-newline merging, and noisy punctuation/junk character removal.
+     */
     @Test
     fun testTextNormalization() {
         val input = "INGREDIENTS:  SUAGR,\n SLT , CITNC- \n ACID"
@@ -26,6 +34,10 @@ class TextIntelligenceTest {
         assertEquals("ingredients: sugar and salt", TextNormalizer.normalize(noisy))
     }
 
+    /**
+     * Verifies that the tokenizer correctly extracts sub-ingredients nested inside parentheses
+     * as a single token, preserving parenthesis groupings.
+     */
     @Test
     fun testParenthesisAwareExtraction() {
         val input = "ingredients: enriched flour (wheat flour, niacin, iron), sugar, salt"
@@ -38,6 +50,10 @@ class TextIntelligenceTest {
         assertEquals("salt", tokens[2])
     }
 
+    /**
+     * Verifies exact spelling corrections, typo mapping, and Levenshtein fuzzy match
+     * behavior based on camera blur metadata.
+     */
     @Test
     fun testOCRTypoCorrection() {
         val vocab = IngredientVocabulary()
@@ -58,6 +74,9 @@ class TextIntelligenceTest {
         assertEquals("sugar", resFuzzy.first().canonical)
     }
 
+    /**
+     * Tests canonical name mapping (e.g. "vitamin c" -> "ascorbic acid") via the dictionary database.
+     */
     @Test
     fun testCanonicalization() {
         assertEquals("salt", IngredientCanonicalizer.canonicalize("sodium chloride"))
@@ -66,6 +85,9 @@ class TextIntelligenceTest {
         assertEquals("sugar", IngredientCanonicalizer.canonicalize("sugar")) // no-op
     }
 
+    /**
+     * Verifies that exact matches, typo maps, and fuzzy lookups score confidence correctly.
+     */
     @Test
     fun testConfidenceScoring() {
         val vocab = IngredientVocabulary()
@@ -85,14 +107,19 @@ class TextIntelligenceTest {
         assertEquals("water", fuzzy.first().canonical)
     }
 
+    /**
+     * Verifies that the specialized interpretation stage operates deterministically
+     * when executed multiple times on identical inputs.
+     */
     @Test
     fun testPipelineDeterminism() = runBlocking {
         val vocab = IngredientVocabulary()
-        val pipeline = SemanticPipeline(vocab)
-        val input = "ingredients: sugar, salt, msg, citric acid"
+        val stage = SpecializedInterpretationStage(vocab)
+        val input = RoutingResult(null, null, null, null, listOf("ingredients: sugar, salt, msg, citric acid"))
+        val context = SemanticRoutingContext(UUID.randomUUID(), 500, 500, OcrMetadata(ocrConfidence = 0.8f))
 
-        val run1 = pipeline(Pair(input, OcrMetadata(ocrConfidence = 0.8f))).correction.output
-        val run2 = pipeline(Pair(input, OcrMetadata(ocrConfidence = 0.8f))).correction.output
+        val run1 = requireNotNull(stage.execute(input, context, ExecutionProfiler()).output).correction.output
+        val run2 = requireNotNull(stage.execute(input, context, ExecutionProfiler()).output).correction.output
 
         assertEquals(run1.size, run2.size)
         run1.forEachIndexed { i, res ->
@@ -103,31 +130,36 @@ class TextIntelligenceTest {
         }
     }
 
+    /**
+     * Verifies recovery of independent ingredient tokens from text missing comma delimiters.
+     */
     @Test
     fun testCatastropheNoCommasSpacingRecovery() = runBlocking {
         val vocab = IngredientVocabulary()
-        val pipeline = SemanticPipeline(vocab)
+        val stage = SpecializedInterpretationStage(vocab)
+        val input = RoutingResult(null, null, null, null, listOf("ingredients: sugar salt citric acid msg"))
+        val context = SemanticRoutingContext(UUID.randomUUID(), 500, 500, OcrMetadata(ocrConfidence = 0.8f))
 
-        // Input has NO commas, but has multi-word ingredients in the vocabulary (like "citric acid")
-        val input = "ingredients: sugar salt citric acid msg"
-        val result = pipeline(Pair(input, OcrMetadata(ocrConfidence = 0.8f))).correction.output
-
+        val result = requireNotNull(stage.execute(input, context, ExecutionProfiler()).output).correction.output
         val canonicals = result.map { it.canonical }
 
-        // Extractor falls back to splitting by space and merging "citric" + "acid"
         assertTrue(canonicals.contains("sugar"))
         assertTrue(canonicals.contains("salt"))
         assertTrue(canonicals.contains("citric acid"))
         assertTrue(canonicals.contains("monosodium glutamate"))
     }
 
+    /**
+     * Verifies semantic recovery for text formatted in uppercase with frequent newlines.
+     */
     @Test
     fun testCatastropheAllCapsAndNewlines() = runBlocking {
         val vocab = IngredientVocabulary()
-        val pipeline = SemanticPipeline(vocab)
+        val stage = SpecializedInterpretationStage(vocab)
+        val input = RoutingResult(null, null, null, null, listOf("INGREDIENTS: SUGAR,\nSALT,\nCITRIC ACID"))
+        val context = SemanticRoutingContext(UUID.randomUUID(), 500, 500, OcrMetadata(ocrConfidence = 0.8f))
 
-        val input = "INGREDIENTS: SUGAR,\nSALT,\nCITRIC ACID"
-        val result = pipeline(Pair(input, OcrMetadata(ocrConfidence = 0.8f))).correction.output
+        val result = requireNotNull(stage.execute(input, context, ExecutionProfiler()).output).correction.output
 
         assertEquals(3, result.size)
         assertEquals("sugar", result[0].canonical)
@@ -135,6 +167,9 @@ class TextIntelligenceTest {
         assertEquals("citric acid", result[2].canonical)
     }
 
+    /**
+     * Verifies fallback behavior when words are catastrophically merged by OCR.
+     */
     @Test
     fun testCatastropheOCRMergedWords() {
         val vocab = IngredientVocabulary()
@@ -146,6 +181,9 @@ class TextIntelligenceTest {
         assertTrue(result.first().failures.contains(com.example.core.intelligence.correction.FailureType.UNKNOWN_INGREDIENT_FAILURE))
     }
 
+    /**
+     * Verifies fuzzy correction when letters are repeated in OCR output (e.g. "suuugar").
+     */
     @Test
     fun testCatastropheRepeatedCharacters() {
         val vocab = IngredientVocabulary()
@@ -156,29 +194,36 @@ class TextIntelligenceTest {
         assertEquals("sugar", repeated.first().canonical)
     }
 
+    /**
+     * Verifies filter cleaning of invalid/noise ingredients (like ellipsis).
+     */
     @Test
     fun testMalformedIngredients() = runBlocking {
         val vocab = IngredientVocabulary()
-        val pipeline = SemanticPipeline(vocab)
+        val stage = SpecializedInterpretationStage(vocab)
+        val input = RoutingResult(null, null, null, null, listOf("ingredients: sugar, ..., salt., water (enriched"))
+        val context = SemanticRoutingContext(UUID.randomUUID(), 500, 500, OcrMetadata(ocrConfidence = 0.8f))
 
-        // Empty strings, trailing periods, unbalanced parenthesis
-        val malformed = "ingredients: sugar, ..., salt., water (enriched"
-        val result = pipeline(Pair(malformed, OcrMetadata(ocrConfidence = 0.8f))).correction.output
-
+        val result = requireNotNull(stage.execute(input, context, ExecutionProfiler()).output).correction.output
         val originals = result.map { it.originalToken }
+
         assertTrue(originals.contains("sugar"))
         assertTrue(originals.contains("salt"))
         assertTrue(originals.contains("water (enriched"))
         assertFalse(originals.contains("..."))
     }
 
+    /**
+     * Verifies preservation of duplicate ingredient entries in the raw sequence.
+     */
     @Test
     fun testDuplicateIngredients() = runBlocking {
         val vocab = IngredientVocabulary()
-        val pipeline = SemanticPipeline(vocab)
+        val stage = SpecializedInterpretationStage(vocab)
+        val input = RoutingResult(null, null, null, null, listOf("ingredients: sugar, salt, sugar, salt"))
+        val context = SemanticRoutingContext(UUID.randomUUID(), 500, 500, OcrMetadata(ocrConfidence = 0.8f))
 
-        val input = "ingredients: sugar, salt, sugar, salt"
-        val result = pipeline(Pair(input, OcrMetadata(ocrConfidence = 0.8f))).correction.output
+        val result = requireNotNull(stage.execute(input, context, ExecutionProfiler()).output).correction.output
 
         // Duplicates preserved in raw output list
         assertEquals(4, result.size)
@@ -190,6 +235,10 @@ class TextIntelligenceTest {
         assertEquals("salt", deduplicated[1].canonical)
     }
 
+    /**
+     * Verifies that the routing matrix maps raw image metadata (blur, light, density, dimensions)
+     * to the correct image processing strategy (e.g. UPSCALE, TILED, Low Light).
+     */
     @Test
     fun testOCRPipelineRouting() {
         val lowComplexityMetrics = OCRComplexityAnalyzer.AnalysisMetrics(
@@ -226,5 +275,40 @@ class TextIntelligenceTest {
         // 6. Normal image routing
         val normalStrategy = OCRPipelineRouter.route(640, 480, lowComplexityMetrics)
         assertEquals(OCRPipelineRouter.OcrStrategy.STANDARD, normalStrategy)
+    }
+
+    @Test
+    fun testFuzzyHeaderAndMixedDelimiters() {
+        // Test fuzzy headers
+        val input1 = "1ngred1ents: sugar, salt"
+        val section1 = IngredientExtractor.extractRawSection(input1)
+        assertEquals("sugar, salt", section1)
+
+        val input2 = "OTHER INGREDlENTS; water, citric acid"
+        val section2 = IngredientExtractor.extractRawSection(input2)
+        assertEquals("water, citric acid", section2)
+
+        val vocab = IngredientVocabulary().getVocabulary()
+
+        // Test mixed delimiters with spaces
+        val tokens = IngredientExtractor.tokenize("sugar salt, citric acid, msg", vocab)
+        assertEquals(4, tokens.size)
+        assertEquals("sugar", tokens[0])
+        assertEquals("salt", tokens[1])
+        assertEquals("citric acid", tokens[2])
+        assertEquals("msg", tokens[3])
+
+        // Verify multi-word preservation ("organic sugar" is not split, "salt" is separate)
+        val tokensMultiWord = IngredientExtractor.tokenize("organic sugar, salt", vocab)
+        assertEquals(2, tokensMultiWord.size)
+        assertEquals("organic sugar", tokensMultiWord[0])
+        assertEquals("salt", tokensMultiWord[1])
+
+        // Verify mixed: multi-word preservation + merged word splitting
+        val tokensMixed = IngredientExtractor.tokenize("whole wheat flour, sugar salt", vocab)
+        assertEquals(3, tokensMixed.size)
+        assertEquals("whole wheat flour", tokensMixed[0])
+        assertEquals("sugar", tokensMixed[1])
+        assertEquals("salt", tokensMixed[2])
     }
 }

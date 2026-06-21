@@ -9,7 +9,10 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -35,8 +38,14 @@ fun CameraPreview(
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
 
+    // Camera resource audit fix: store reference so we can unbind when composable leaves.
+    var cameraProviderRef: ProcessCameraProvider? by remember { mutableStateOf(null) }
+
     DisposableEffect(Unit) {
         onDispose {
+            // Properly release camera hardware when ScanScreen is no longer displayed.
+            // Previously only the executor was shut down, leaving the camera active at OS level.
+            cameraProviderRef?.unbindAll()
             cameraExecutor.shutdown()
         }
     }
@@ -56,6 +65,8 @@ fun CameraPreview(
             cameraProviderFuture.addListener(
                 {
                     val cameraProvider = cameraProviderFuture.get()
+                    cameraProviderRef = cameraProvider  // Store reference for unbind in onDispose
+
                     val preview = Preview.Builder().build().also {
                         it.surfaceProvider = previewView.surfaceProvider
                     }
@@ -100,3 +111,4 @@ fun CameraPreview(
         }
     )
 }
+

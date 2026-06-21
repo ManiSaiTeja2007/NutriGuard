@@ -1,12 +1,13 @@
 {
   "schema_version": "1.0",
-  "snapshot_generated_at": "2026-05-29T16:41:56Z",
-  "stage": "Stage 13.1 \u2014 Packaging Intelligence Validation",
+  "snapshot_generated_at": "2026-06-18T06:42:38Z",
+  "stage": "Stage 13.0E \u2014 Platform Hardening, Streamlining & Performance Convergence",
   "psp_version": "1.0",
   "generated_files": [
     "project_health.json",
     "psp_metrics.json",
     "runtime_audit_report.json",
+    "runtime_execution_snapshot.json",
     "README_STATE.md"
   ]
 }

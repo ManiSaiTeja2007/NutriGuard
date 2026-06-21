@@ -184,58 +184,365 @@
   {
     "canonicalName": "turmeric",
     "aliases": ["haldi"],
-    "category": "UNKNOWN",
+    "category": "SEASONING",
     "additiveCode": null,
-    "tags": []
+    "tags": ["seasoning", "spice"]
   },
   {
     "canonicalName": "salt",
     "aliases": ["namak", "sodium chloride"],
-    "category": "UNKNOWN",
+    "category": "SEASONING",
     "additiveCode": null,
-    "tags": ["high_sodium"]
+    "tags": ["seasoning", "high_sodium"]
   },
   {
     "canonicalName": "yogurt",
     "aliases": ["dahi"],
-    "category": "UNKNOWN",
+    "category": "BASE_INGREDIENT",
     "additiveCode": null,
-    "tags": []
+    "tags": ["base_ingredient", "dairy"]
   },
   {
     "canonicalName": "cumin",
     "aliases": ["jeera", "जीरा"],
-    "category": "UNKNOWN",
+    "category": "SEASONING",
     "additiveCode": null,
-    "tags": []
+    "tags": ["seasoning", "spice"]
   },
   {
     "canonicalName": "ginger",
     "aliases": ["adrak", "अदरक"],
-    "category": "UNKNOWN",
+    "category": "SEASONING",
     "additiveCode": null,
-    "tags": []
+    "tags": ["seasoning", "spice"]
   },
   {
     "canonicalName": "garlic",
     "aliases": ["lahsun", "लहसुन"],
-    "category": "UNKNOWN",
+    "category": "SEASONING",
     "additiveCode": null,
-    "tags": []
+    "tags": ["seasoning", "spice"]
   },
   {
     "canonicalName": "saffron",
     "aliases": ["kesar", "केसर"],
-    "category": "UNKNOWN",
+    "category": "SEASONING",
     "additiveCode": null,
-    "tags": []
+    "tags": ["seasoning", "spice"]
   },
   {
     "canonicalName": "water",
     "aliases": ["wasser"],
-    "category": "UNKNOWN",
+    "category": "BASE_INGREDIENT",
     "additiveCode": null,
-    "tags": []
+    "tags": ["base_ingredient"]
+  },
+  {
+    "canonicalName": "wheat flour",
+    "aliases": ["flour", "refined flour", "maida"],
+    "category": "BASE_INGREDIENT",
+    "additiveCode": null,
+    "tags": ["base_ingredient", "grain"]
+  },
+  {
+    "canonicalName": "enriched flour",
+    "aliases": ["enriched wheat flour"],
+    "category": "BASE_INGREDIENT",
+    "additiveCode": null,
+    "tags": ["base_ingredient", "grain"]
+  },
+  {
+    "canonicalName": "yeast",
+    "aliases": [],
+    "category": "BASE_INGREDIENT",
+    "additiveCode": null,
+    "tags": ["base_ingredient"]
+  },
+  {
+    "canonicalName": "milk",
+    "aliases": ["milk solids", "whole milk", "skimmed milk"],
+    "category": "BASE_INGREDIENT",
+    "additiveCode": null,
+    "tags": ["base_ingredient", "dairy"]
+  },
+  {
+    "canonicalName": "cheese",
+    "aliases": [],
+    "category": "BASE_INGREDIENT",
+    "additiveCode": null,
+    "tags": ["base_ingredient", "dairy"]
+  },
+  {
+    "canonicalName": "butter",
+    "aliases": ["butter fat"],
+    "category": "OIL",
+    "additiveCode": null,
+    "tags": ["oil", "fat", "dairy"]
+  },
+  {
+    "canonicalName": "eggs",
+    "aliases": ["egg", "egg yolk", "egg white"],
+    "category": "BASE_INGREDIENT",
+    "additiveCode": null,
+    "tags": ["base_ingredient"]
+  },
+  {
+    "canonicalName": "whey",
+    "aliases": ["whey powder", "whey protein"],
+    "category": "BASE_INGREDIENT",
+    "additiveCode": null,
+    "tags": ["base_ingredient", "dairy"]
+  },
+  {
+    "canonicalName": "lactose",
+    "aliases": [],
+    "category": "SWEETENER",
+    "additiveCode": null,
+    "tags": ["sweetener", "dairy"]
+  },
+  {
+    "canonicalName": "dextrose",
+    "aliases": [],
+    "category": "SWEETENER",
+    "additiveCode": null,
+    "tags": ["sweetener"]
+  },
+  {
+    "canonicalName": "fructose",
+    "aliases": [],
+    "category": "SWEETENER",
+    "additiveCode": null,
+    "tags": ["sweetener"]
+  },
+  {
+    "canonicalName": "glucose",
+    "aliases": ["glucose syrup"],
+    "category": "SWEETENER",
+    "additiveCode": null,
+    "tags": ["sweetener"]
+  },
+  {
+    "canonicalName": "maltose",
+    "aliases": [],
+    "category": "SWEETENER",
+    "additiveCode": null,
+    "tags": ["sweetener"]
+  },
+  {
+    "canonicalName": "erythritol",
+    "aliases": [],
+    "category": "SWEETENER",
+    "additiveCode": null,
+    "tags": ["sweetener", "sugar_alcohol"]
+  },
+  {
+    "canonicalName": "xylitol",
+    "aliases": [],
+    "category": "SWEETENER",
+    "additiveCode": null,
+    "tags": ["sweetener", "sugar_alcohol"]
+  },
+  {
+    "canonicalName": "sorbitol",
+    "aliases": [],
+    "category": "SWEETENER",
+    "additiveCode": null,
+    "tags": ["sweetener", "sugar_alcohol"]
+  },
+  {
+    "canonicalName": "mannitol",
+    "aliases": [],
+    "category": "SWEETENER",
+    "additiveCode": null,
+    "tags": ["sweetener", "sugar_alcohol"]
+  },
+  {
+    "canonicalName": "modified corn starch",
+    "aliases": ["modified starch", "modified food starch"],
+    "category": "STABILIZER",
+    "additiveCode": "E1401",
+    "tags": ["additive", "stabilizer", "thickener"]
+  },
+  {
+    "canonicalName": "gelatin",
+    "aliases": [],
+    "category": "STABILIZER",
+    "additiveCode": null,
+    "tags": ["stabilizer", "thickener"]
+  },
+  {
+    "canonicalName": "pectin",
+    "aliases": [],
+    "category": "STABILIZER",
+    "additiveCode": "E440",
+    "tags": ["additive", "stabilizer", "thickener"]
+  },
+  {
+    "canonicalName": "ammonium bicarbonate",
+    "aliases": ["ammonium hydrogen carbonate"],
+    "category": "ACIDITY_REGULATOR",
+    "additiveCode": "E503",
+    "tags": ["additive", "raising_agent"]
+  },
+  {
+    "canonicalName": "monocalcium phosphate",
+    "aliases": [],
+    "category": "ACIDITY_REGULATOR",
+    "additiveCode": "E341",
+    "tags": ["additive", "raising_agent"]
+  },
+  {
+    "canonicalName": "disodium phosphate",
+    "aliases": [],
+    "category": "ACIDITY_REGULATOR",
+    "additiveCode": "E339",
+    "tags": ["additive", "stabilizer"]
+  },
+  {
+    "canonicalName": "trisodium phosphate",
+    "aliases": [],
+    "category": "ACIDITY_REGULATOR",
+    "additiveCode": "E339iii",
+    "tags": ["additive", "stabilizer"]
+  },
+  {
+    "canonicalName": "onion",
+    "aliases": ["onion powder"],
+    "category": "VEGGIE_GRAIN",
+    "additiveCode": null,
+    "tags": ["vegetable", "seasoning"]
+  },
+  {
+    "canonicalName": "spices",
+    "aliases": ["spice", "mixed spices"],
+    "category": "SEASONING",
+    "additiveCode": null,
+    "tags": ["seasoning", "spice"]
+  },
+  {
+    "canonicalName": "cocoa",
+    "aliases": ["cocoa powder", "cocoa solids"],
+    "category": "BASE_INGREDIENT",
+    "additiveCode": null,
+    "tags": ["base_ingredient"]
+  },
+  {
+    "canonicalName": "chocolate",
+    "aliases": ["milk chocolate", "dark chocolate"],
+    "category": "BASE_INGREDIENT",
+    "additiveCode": null,
+    "tags": ["base_ingredient"]
+  },
+  {
+    "canonicalName": "vanilla",
+    "aliases": ["vanilla extract", "vanillin"],
+    "category": "SEASONING",
+    "additiveCode": null,
+    "tags": ["seasoning"]
+  },
+  {
+    "canonicalName": "malic acid",
+    "aliases": ["e296"],
+    "category": "ACIDITY_REGULATOR",
+    "additiveCode": "E296",
+    "tags": ["additive", "acidity_regulator"]
+  },
+  {
+    "canonicalName": "lactic acid",
+    "aliases": ["e270"],
+    "category": "ACIDITY_REGULATOR",
+    "additiveCode": "E270",
+    "tags": ["additive", "acidity_regulator"]
+  },
+  {
+    "canonicalName": "tartaric acid",
+    "aliases": ["e334"],
+    "category": "ACIDITY_REGULATOR",
+    "additiveCode": "E334",
+    "tags": ["additive", "acidity_regulator"]
+  },
+  {
+    "canonicalName": "acetic acid",
+    "aliases": ["e260"],
+    "category": "ACIDITY_REGULATOR",
+    "additiveCode": "E260",
+    "tags": ["additive", "acidity_regulator"]
+  },
+  {
+    "canonicalName": "carbonated water",
+    "aliases": ["soda water", "sparkling water"],
+    "category": "BASE_INGREDIENT",
+    "additiveCode": null,
+    "tags": ["base_ingredient"]
+  },
+  {
+    "canonicalName": "red 40",
+    "aliases": ["allura red", "e129"],
+    "category": "COLORING",
+    "additiveCode": "E129",
+    "tags": ["additive", "coloring"]
+  },
+  {
+    "canonicalName": "yellow 5",
+    "aliases": ["tartrazine", "e102"],
+    "category": "COLORING",
+    "additiveCode": "E102",
+    "tags": ["additive", "coloring"]
+  },
+  {
+    "canonicalName": "yellow 6",
+    "aliases": ["sunset yellow", "e110"],
+    "category": "COLORING",
+    "additiveCode": "E110",
+    "tags": ["additive", "coloring"]
+  },
+  {
+    "canonicalName": "blue 1",
+    "aliases": ["brilliant blue", "e133"],
+    "category": "COLORING",
+    "additiveCode": "E133",
+    "tags": ["additive", "coloring"]
+  },
+  {
+    "canonicalName": "vegetable oil",
+    "aliases": ["vegetable fats"],
+    "category": "OIL",
+    "additiveCode": null,
+    "tags": ["oil", "fat"]
+  },
+  {
+    "canonicalName": "reduced iron",
+    "aliases": ["iron"],
+    "category": "ADDITIVE",
+    "additiveCode": null,
+    "tags": ["additive", "nutrient"]
+  },
+  {
+    "canonicalName": "niacin",
+    "aliases": ["vitamin b3"],
+    "category": "ADDITIVE",
+    "additiveCode": null,
+    "tags": ["additive", "nutrient"]
+  },
+  {
+    "canonicalName": "thiamine mononitrate",
+    "aliases": ["vitamin b1"],
+    "category": "ADDITIVE",
+    "additiveCode": null,
+    "tags": ["additive", "nutrient"]
+  },
+  {
+    "canonicalName": "riboflavin",
+    "aliases": ["vitamin b2", "e101"],
+    "category": "ADDITIVE",
+    "additiveCode": "E101",
+    "tags": ["additive", "nutrient", "coloring"]
+  },
+  {
+    "canonicalName": "folic acid",
+    "aliases": ["vitamin b9"],
+    "category": "ADDITIVE",
+    "additiveCode": null,
+    "tags": ["additive", "nutrient"]
   }
 ]
-

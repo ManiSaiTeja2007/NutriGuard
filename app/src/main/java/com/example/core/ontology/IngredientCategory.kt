@@ -10,5 +10,8 @@ enum class IngredientCategory {
     OIL,
     COLORING,
     ADDITIVE,
+    SEASONING,
+    VEGGIE_GRAIN,
+    BASE_INGREDIENT,
     UNKNOWN
 }

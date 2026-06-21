@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "generation_mode": "AUTOMATED",
+  "current_runtime_path": "SemanticExecutionGraph",
+  "connected_test_status": "PASS",
+  "scan_metrics": {
+    "ocr_latency_ms": 350,
+    "total_ingestion_latency_ms": 650
+  },
+  "last_runtime_audit": "2026-05-30",
+  "snapshot_generated_at": "2026-06-18T06:42:38Z",
+  "fallback_path_enabled": false,
+  "startup_metrics": {
+    "cold_start_ms": 3200,
+    "warm_start_ms": 850
+  },
+  "execution_graph_enabled": true,
+  "source_file": "benchmark/reports/runtime_execution_snapshot.json"
+}

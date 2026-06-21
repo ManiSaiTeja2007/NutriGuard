@@ -37,6 +37,9 @@ fun ResultsScreen(
     navController: NavController,
     modifier: Modifier = Modifier
 ) {
+    var devToolsExpanded by remember { mutableStateOf(false) }
+    val isDeveloperModeActive = BuildCapabilities.isDeveloperBuild && AppSettings.showOverlays
+
     val parsedIngredients = remember(args.canonicalJson) {
         val list = mutableListOf<CorrectionResult>()
         try {
@@ -121,27 +124,28 @@ fun ResultsScreen(
     NutriScreenScaffold(
         title = "Analysis Results",
         onBack = { navController.navigateTo(Screen.Home) },
+        actions = {
+            if (isDeveloperModeActive && args.executionId.isNotEmpty()) {
+                IconButton(
+                    onClick = { devToolsExpanded = !devToolsExpanded },
+                    modifier = Modifier.testTag("developer_tools_expand")
+                ) {
+                    Icon(
+                        imageVector = NutriIcons.Build,
+                        contentDescription = if (devToolsExpanded) "Hide Dev Tools" else "Show Dev Tools",
+                        tint = if (devToolsExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        },
         modifier = modifier.testTag("results_screen")
     ) { paddingValues ->
-        var devToolsExpanded by remember { mutableStateOf(false) }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
         ) {
-            ResultsActionsRow(
-                canShowDeveloperTools = BuildCapabilities.isDeveloperBuild && args.executionId.isNotEmpty(),
-                devToolsExpanded = devToolsExpanded,
-                onBack = { navController.navigateTo(Screen.Home) },
-                onToggleDeveloperTools = { devToolsExpanded = !devToolsExpanded },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            )
-
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -149,7 +153,7 @@ fun ResultsScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (BuildCapabilities.isDeveloperBuild && args.executionId.isNotEmpty() && devToolsExpanded) {
+                if (isDeveloperModeActive && args.executionId.isNotEmpty() && devToolsExpanded) {
                     com.example.ui.features.developer.components.ExpandableDeveloperSection(
                         executionId = args.executionId,
                         modifier = Modifier.fillMaxWidth()
@@ -245,16 +249,34 @@ fun ResultsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else {
-                        parsedIngredients.forEach { ingredient ->
-                            IngredientItemRow(ingredient)
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), modifier = Modifier.padding(vertical = 6.dp))
+                        val groupedIngredients = remember(parsedIngredients) {
+                            parsedIngredients.groupBy { com.example.core.ontology.CorpusClassifier.classify(it.canonical) }
+                        }
+                        com.example.core.ontology.CorpusClassifier.Section.values().forEach { section ->
+                            val list = groupedIngredients[section]
+                            if (!list.isNullOrEmpty()) {
+                                Text(
+                                    text = section.displayName,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                                )
+                                list.forEach { ingredient ->
+                                    IngredientItemRow(ingredient)
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
+                                        modifier = Modifier.padding(vertical = 6.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
             // 3. Diagnostics Panel (if diagnostics are enabled for this build mode)
-            if (FeatureFlags.enableDiagnostics) {
+            if (isDeveloperModeActive) {
                 NutriCard(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -371,56 +393,7 @@ fun ResultsScreen(
                 }
             }
 
-            // Bottom Actions Area
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(NutriSpacing.md),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                NutriSecondaryButton(
-                    text = "Back",
-                    onClick = { navController.navigateTo(Screen.Home) },
-                    modifier = Modifier.weight(1f)
-                )
-
-                if (BuildCapabilities.isDeveloperBuild && args.executionId.isNotEmpty()) {
-                    NutriPrimaryButton(
-                        text = if (devToolsExpanded) "Hide Dev Tools" else "Developer Tools",
-                        onClick = { devToolsExpanded = !devToolsExpanded },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
             }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ResultsActionsRow(
-    canShowDeveloperTools: Boolean,
-    devToolsExpanded: Boolean,
-    onBack: () -> Unit,
-    onToggleDeveloperTools: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(NutriSpacing.md),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        NutriSecondaryButton(
-            text = "Back",
-            onClick = onBack,
-            modifier = Modifier.weight(1f).testTag("results_back_button")
-        )
-
-        if (canShowDeveloperTools) {
-            NutriPrimaryButton(
-                text = if (devToolsExpanded) "Hide Dev Tools" else "Developer Tools",
-                onClick = onToggleDeveloperTools,
-                modifier = Modifier.weight(1f).testTag("developer_tools_expand")
-            )
         }
     }
 }
@@ -428,7 +401,7 @@ private fun ResultsActionsRow(
 @Composable
 private fun IngredientItemRow(ingredient: CorrectionResult) {
     var traceExpanded by remember { mutableStateOf(false) }
-    val showTraceOption = FeatureFlags.enableDiagnostics && AppSettings.showOverlays
+    val showTraceOption = BuildCapabilities.isDeveloperBuild && AppSettings.showOverlays
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(

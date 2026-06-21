@@ -16,11 +16,32 @@ object IngredientExtractor {
         "inactive ingredients"
     )
 
+    private val HEADER_PATTERNS = listOf(
+        Regex("\\bother\\s+[i1l!|][nv]gred[ie1l!|]ent[s5]?[;:\\s]*", RegexOption.IGNORE_CASE),
+        Regex("\\bactive\\s+[i1l!|][nv]gred[ie1l!|]ent[s5]?[;:\\s]*", RegexOption.IGNORE_CASE),
+        Regex("\\binactive\\s+[i1l!|][nv]gred[ie1l!|]ent[s5]?[;:\\s]*", RegexOption.IGNORE_CASE),
+        Regex("\\b[i1l!|][nv]gred[ie1l!|]ent[s5]?[;:\\s]*", RegexOption.IGNORE_CASE),
+        Regex("\\bcontains\\s+less\\s+than\\s+2%\\s+of[;:\\s]*", RegexOption.IGNORE_CASE),
+        Regex("\\bcontains[;:\\s]*", RegexOption.IGNORE_CASE)
+    )
+
     /**
      * Extracts the raw ingredient section text after a known header.
      * If no header is found, returns the entire input string.
      */
     fun extractRawSection(text: String): String {
+        // 1. Try matching with fuzzy regex patterns
+        for (pattern in HEADER_PATTERNS) {
+            val match = pattern.find(text)
+            if (match != null) {
+                val start = match.range.last + 1
+                if (start < text.length) {
+                    return text.substring(start).trim()
+                }
+            }
+        }
+
+        // 2. Fallback to exact list matching
         val lowerText = text.lowercase().trim()
         for (header in HEADERS) {
             val index = lowerText.indexOf(header)
@@ -32,6 +53,50 @@ object IngredientExtractor {
             }
         }
         return text
+    }
+
+    private fun shouldSplitMergedToken(token: String, vocabulary: Set<String>): Boolean {
+        val clean = token.lowercase().trim()
+        if (!clean.contains(' ')) return false
+
+        // If the whole token is in vocabulary or is a known alias, we do not split it
+        if (vocabulary.contains(clean) || IngredientCanonicalizer.isAlias(clean)) return false
+        val canonical = IngredientCanonicalizer.canonicalize(clean)
+        if (vocabulary.contains(canonical) || IngredientCanonicalizer.isAlias(canonical)) return false
+
+        // Common phrases check
+        val commonPhrases = setOf(
+            "citric acid", "ascorbic acid", "malic acid", "lactic acid",
+            "high fructose corn syrup", "corn syrup", "soy lecithin", "sunflower lecithin",
+            "modified corn starch", "enriched wheat flour", "enriched flour", "wheat flour",
+            "palm oil", "canola oil", "soybean oil", "vegetable oil", "reduced iron",
+            "natural flavor", "artificial flavor", "monosodium glutamate", "sodium chloride"
+        )
+        if (commonPhrases.contains(clean) || commonPhrases.contains(canonical)) return false
+
+        // Retain parenthetical groupings intact
+        if (clean.contains('(') || clean.contains('[') || clean.contains('{')) return false
+
+        val words = clean.split(Regex("\\s+")).filter { it.isNotBlank() }
+        if (words.size < 2) return false
+
+        // Count how many words are individually known ingredients/aliases or E-numbers/additives
+        var knownCount = 0
+        for (word in words) {
+            val wordCanonical = IngredientCanonicalizer.canonicalize(word)
+            val isKnown = vocabulary.contains(word) || 
+                          vocabulary.contains(wordCanonical) ||
+                          IngredientCanonicalizer.isAlias(word) || 
+                          IngredientCanonicalizer.isAlias(wordCanonical) ||
+                          word.matches(Regex("e\\d{3,4}.*")) ||
+                          word.matches(Regex("ins\\s?\\d{3,4}.*"))
+            if (isKnown) {
+                knownCount++
+            }
+        }
+
+        // If at least two words are individually known ingredients, it's likely a merged spacing error
+        return knownCount >= 2
     }
 
     /**
@@ -66,7 +131,20 @@ object IngredientExtractor {
             splitByDelimiter(trimmedSection, listOf(' '))
         }
 
-        if (hasTopLevelDelimiters || vocabulary.isEmpty()) {
+        if (hasTopLevelDelimiters) {
+            val finalTokens = mutableListOf<String>()
+            for (token in initialTokens) {
+                if (shouldSplitMergedToken(token, vocabulary)) {
+                    val subTokens = token.split(Regex("\\s+")).filter { it.isNotBlank() }
+                    finalTokens.addAll(subTokens)
+                } else {
+                    finalTokens.add(token)
+                }
+            }
+            return finalTokens
+        }
+
+        if (vocabulary.isEmpty()) {
             return initialTokens
         }
 

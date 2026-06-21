@@ -90,8 +90,26 @@ class IngredientExtractor:
         "inactive ingredients"
     ]
 
+    HEADER_PATTERNS = [
+        re.compile(r"\bother\s+[i1l!|][nv]gred[ie1l!|]ent[s5]?[;:\s]*", re.IGNORECASE),
+        re.compile(r"\bactive\s+[i1l!|][nv]gred[ie1l!|]ent[s5]?[;:\s]*", re.IGNORECASE),
+        re.compile(r"\binactive\s+[i1l!|][nv]gred[ie1l!|]ent[s5]?[;:\s]*", re.IGNORECASE),
+        re.compile(r"\b[i1l!|][nv]gred[ie1l!|]ent[s5]?[;:\s]*", re.IGNORECASE),
+        re.compile(r"\bcontains\s+less\s+than\s+2%\s+of[;:\s]*", re.IGNORECASE),
+        re.compile(r"\bcontains[;:\s]*", re.IGNORECASE)
+    ]
+
     @staticmethod
     def extract_raw_section(text: str) -> str:
+        # 1. Try matching with fuzzy regex patterns
+        for pattern in IngredientExtractor.HEADER_PATTERNS:
+            match = pattern.search(text)
+            if match:
+                start = match.end()
+                if start < len(text):
+                    return text[start:].strip()
+
+        # 2. Fallback to exact list matching
         lower_text = text.lower().strip()
         for header in IngredientExtractor.HEADERS:
             idx = lower_text.find(header)
@@ -100,6 +118,55 @@ class IngredientExtractor:
                 if start < len(text):
                     return text[start:].strip()
         return text
+
+    @staticmethod
+    def should_split_merged_token(token: str, vocabulary: set) -> bool:
+        if not vocabulary:
+            return False
+        clean = token.lower().strip()
+        if ' ' not in clean:
+            return False
+        
+        # If the whole token is in vocabulary or is a known alias, we do not split it
+        if (clean in vocabulary) or IngredientCanonicalizer.is_alias(clean):
+            return False
+        canonical = IngredientCanonicalizer.canonicalize(clean)
+        if (canonical in vocabulary) or IngredientCanonicalizer.is_alias(canonical):
+            return False
+
+        # Common phrases check
+        common_phrases = {
+            "citric acid", "ascorbic acid", "malic acid", "lactic acid",
+            "high fructose corn syrup", "corn syrup", "soy lecithin", "sunflower lecithin",
+            "modified corn starch", "enriched wheat flour", "enriched flour", "wheat flour",
+            "palm oil", "canola oil", "soybean oil", "vegetable oil", "reduced iron",
+            "natural flavor", "artificial flavor", "monosodium glutamate", "sodium chloride"
+        }
+        if (clean in common_phrases) or (canonical in common_phrases):
+            return False
+
+        # Retain parenthetical groupings intact
+        if any(c in clean for c in ('(', '[', '{')):
+            return False
+
+        words = [w for w in clean.split() if w]
+        if len(words) < 2:
+            return False
+
+        # Count how many words are individually known ingredients/aliases or E-numbers/additives
+        known_count = 0
+        for word in words:
+            word_canonical = IngredientCanonicalizer.canonicalize(word)
+            is_known = (word in vocabulary) or \
+                       (word_canonical in vocabulary) or \
+                       IngredientCanonicalizer.is_alias(word) or \
+                       IngredientCanonicalizer.is_alias(word_canonical) or \
+                       re.match(r"^e\d{3,4}[a-z]?$", word) or \
+                       re.match(r"^ins\d{3,4}[a-z]?$", word)
+            if is_known:
+                known_count += 1
+
+        return known_count >= 2
 
     @staticmethod
     def tokenize(section_text: str, vocabulary: set = None) -> list:
@@ -123,10 +190,20 @@ class IngredientExtractor:
 
         if has_top_level_delimiters:
             initial_tokens = IngredientExtractor.split_by_delimiter(trimmed, [',', ';'])
+            if not vocabulary:
+                return initial_tokens
+            final_tokens = []
+            for token in initial_tokens:
+                if IngredientExtractor.should_split_merged_token(token, vocabulary):
+                    sub_tokens = [w for w in token.split() if w]
+                    final_tokens.extend(sub_tokens)
+                else:
+                    final_tokens.append(token)
+            return final_tokens
         else:
             initial_tokens = IngredientExtractor.split_by_delimiter(trimmed, [' '])
 
-        if has_top_level_delimiters or not vocabulary:
+        if not vocabulary:
             return initial_tokens
 
         # Spacing recovery: merge adjacent tokens if they form a known vocabulary entry or canonical alias

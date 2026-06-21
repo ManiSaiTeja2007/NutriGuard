@@ -98,17 +98,35 @@ The Stage 13.0B Exit Gate mandates that the converges are fully operational and 
 
 ---
 
-## 7. Stage 13.2 Entry Gate
+## 7. Stage 13.0D Exit Gate
 
-Stage 13.2 may begin only if the Stage 13.1 validation and metrics requirements are fully completed and verified:
+Stage 13.0D is complete when the single authority runtime integration is verified and baseline documents are updated:
+
+| Exit Gate Criterion | Verification Source | Status |
+| :--- | :--- | :---: |
+| **✓ PipelineRunner authoritative** | Single path executes scan ingestion in ScanViewModel | 🟢 PASS |
+| **✓ SemanticExecutionGraph authoritative** | Orchestrates all 8 stages during scan ingestion | 🟢 PASS |
+| **✓ Duplicate runtime outputs removed** | Zero parallel execution of legacy pipeline in ScanViewModel | 🟢 PASS |
+| **✓ Test convergence complete** | Redundant test suites deleted/consolidated | 🟢 PASS |
+| **✓ File ownership matrix complete** | Authoritative files cataloged in `file_ownership_matrix.md` | 🟢 PASS |
+| **✓ Runtime execution proof complete** | Call-chain documented in `runtime_execution_proof.md` | 🟢 PASS |
+| **✓ Connected Android tests pass** | `PipelineIntegrationSmokeTest` and VM tests pass | 🟢 PASS |
+| **✓ PSP synchronized** | Snapshots and manifests regenerated via `pspRefresh` | 🟢 PASS |
+
+---
+
+## 8. Stage 13.0D.5 Legacy Retirement Gate
+
+Before the legacy `SemanticPipeline` and associated adapters are removed, the following gates must be met:
 
 | Gate Criterion | Verification Source | Status |
 | :--- | :--- | :---: |
-| **✓ Graph outperforms Legacy** | F1 metrics in [packaging_validation_report.md](file:///d:/projects/Ongoing/nutriguard/docs/packaging_validation_report.md) | 🟢 PASS |
-| **✓ Packaging validation report completed** | Documented analysis in [packaging_validation_report.md](file:///d:/projects/Ongoing/nutriguard/docs/packaging_validation_report.md) | 🟢 PASS |
-| **✓ Runtime evidence collected** | Claim 7 in [runtime_evidence_log.md](file:///d:/projects/Ongoing/nutriguard/docs/runtime_evidence_log.md) | 🟢 PASS |
-| **✓ PSP synchronized** | Gradle verification tasks (`pspRefresh`) complete and snapshots updated | 🟢 PASS |
-| **✓ Validation metrics documented** | Core precision/recall tables in [packaging_validation_report.md](file:///d:/projects/Ongoing/nutriguard/docs/packaging_validation_report.md) | 🟢 PASS |
+| **✓ RuntimeExecutionVerificationTest passes**| Android instrumented verification test passes | 🟢 PASS |
+| **✓ PackagingValidationTest passes** | Ground truth validation scorecard test passes | 🟢 PASS |
+| **✓ Connected Android tests pass** | Full connected instrumented test suite passes | 🟢 PASS |
+| **✓ Real scan validation passes** | Visual overlays and ingestion verify clean in production | 🟢 PASS |
+| **✓ Rollback tested** | FeatureFlags switch rolls back safely on developer build | 🟢 PASS |
+| **✓ PSP synchronized** | Manifest snapshots match Stage 13.0D.5 criteria | 🟢 PASS |
 
 
 

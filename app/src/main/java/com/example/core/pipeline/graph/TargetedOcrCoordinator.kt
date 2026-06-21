@@ -60,8 +60,16 @@ class TargetedOcrCoordinator(
 
         var totalOcrLatency = 0L
 
+        // ISSUE-009 FIX: Cap zone processing to MAX_ZONES_PER_SCAN.
+        // With unlimited zones and serial ML Kit execution, scan time grows linearly:
+        // 4 zones × 5-8s = 20-34s (observed ~34s). Capping at 3 zones bounds worst-case to ~24s.
+        // HIGH priority zones are already first in sortedZones (sorted above).
+        val MAX_ZONES_PER_SCAN = 3
+        val cappedZones = sortedZones.take(MAX_ZONES_PER_SCAN)
+
         // Budgeting/Parallel execution strategy
-        for (zone in sortedZones) {
+        for (zone in cappedZones) {
+
             val rect = Rect(
                 zone.rect.left.coerceIn(0, input.width),
                 zone.rect.top.coerceIn(0, input.height),
@@ -80,24 +88,8 @@ class TargetedOcrCoordinator(
             }
 
             val zoneStart = android.os.SystemClock.elapsedRealtime()
-            val frame = ImageFrame.BitmapFrame(
-                bitmap = croppedBitmap,
-                rotationDegrees = 0,
-                timestampNanos = System.nanoTime(),
-                source = ImageSource.CAMERA_X
-            )
-            val frameResult = FrameAnalysisResult(
-                width = croppedBitmap.width,
-                height = croppedBitmap.height,
-                rotationDegrees = 0,
-                timestampNanos = frame.timestampNanos,
-                source = ImageSource.CAMERA_X,
-                hasBitmap = true,
-                processingLatencyMs = 0L
-            )
-
             val ocrResult = try {
-                ocrPipeline(Pair(frame, frameResult))
+                ocrPipeline.runDirectOcr(croppedBitmap)
             } catch (e: Exception) {
                 failures.add("OCR execution failed on zone ${zone.type}: ${e.message}")
                 null

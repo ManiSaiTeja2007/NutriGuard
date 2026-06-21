@@ -8,7 +8,6 @@ import com.example.core.frame.FramePipeline
 import com.example.core.imaging.ImageFrame
 import com.example.core.imaging.ImageSource
 import com.example.core.pipeline.OCRPipeline
-import com.example.core.pipeline.SemanticPipeline
 import com.example.core.pipeline.PipelineResult
 import com.example.core.pipeline.PipelineConfig
 import com.example.core.pipeline.PipelineMode
@@ -61,11 +60,10 @@ class ScanViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(ScanUiState())
     val uiState: StateFlow<ScanUiState> = _uiState.asStateFlow()
 
-    private val framePipeline = FramePipeline(throttleMs = 0L)
-    private val ocrPipeline = OCRPipeline()
-    private val vocabulary = IngredientVocabulary()
-    private val semanticPipeline = SemanticPipeline(vocabulary)
-    private val pipelineRunner = com.example.core.pipeline.PipelineRunner(ocrPipeline, semanticPipeline)
+    private val framePipeline by lazy { FramePipeline(throttleMs = 0L) }
+    private val ocrPipeline by lazy { OCRPipeline() }
+    private val vocabulary by lazy { IngredientVocabulary() }
+    private val pipelineRunner by lazy { com.example.core.pipeline.PipelineRunner(ocrPipeline, vocabulary) }
 
     private var latestBitmap: android.graphics.Bitmap? = null
 
@@ -87,16 +85,29 @@ class ScanViewModel : ViewModel() {
 
     fun setLatestOcr(ocr: OcrResult) {
         _uiState.update { it.copy(latestOcr = ocr) }
-        ocr.frameBitmap?.let {
-            latestBitmap = it
+        ocr.frameBitmap?.let { newBitmap ->
+            // ISSUE-002 FIX: Recycle the previous bitmap before overwriting
+            // to prevent unbounded bitmap accumulation in memory.
+            latestBitmap?.recycle()
+            latestBitmap = newBitmap
         }
     }
 
+    /**
+     * Initializes the list of test images available for validation mode.
+     * Sets the default selected index to 0 and triggers loading the first image.
+     *
+     * @param imageNames List of assets representing test label images.
+     * @param repository Test label asset loader helper.
+     */
     fun initializeTestImages(imageNames: List<String>, repository: TestLabelAssetRepository) {
         _uiState.update { it.copy(imageNames = imageNames, selectedIndex = 0) }
         loadTestImage(repository)
     }
 
+    /**
+     * Cycles to the previous test image in the list and triggers loading it.
+     */
     fun selectPreviousTestImage(repository: TestLabelAssetRepository) {
         val names = _uiState.value.imageNames
         if (names.isEmpty()) return
@@ -106,6 +117,9 @@ class ScanViewModel : ViewModel() {
         loadTestImage(repository)
     }
 
+    /**
+     * Cycles to the next test image in the list and triggers loading it.
+     */
     fun selectNextTestImage(repository: TestLabelAssetRepository) {
         val names = _uiState.value.imageNames
         if (names.isEmpty()) return
@@ -115,6 +129,17 @@ class ScanViewModel : ViewModel() {
         loadTestImage(repository)
     }
 
+    /**
+     * Loads the test image asset asynchronously, executes the frame analysis pipeline and
+     * OCR detection, and updates the validation UI state.
+     *
+     * Steps:
+     * 1. Recycle previously loaded bitmap to prevent leaks.
+     * 2. Load the target asset from repository.
+     * 3. Construct an [ImageFrame.BitmapFrame].
+     * 4. Execute [framePipeline] and [ocrPipeline].
+     * 5. Update UI state with status messages indicating validation success or failure.
+     */
     private fun loadTestImage(repository: TestLabelAssetRepository) {
         val idx = _uiState.value.selectedIndex
         val names = _uiState.value.imageNames
@@ -125,6 +150,7 @@ class ScanViewModel : ViewModel() {
 
         viewModelScope.launch(Dispatchers.Default) {
             try {
+                _uiState.value.validationState.ocrResult?.frameBitmap?.recycle()
                 val asset = repository.load(fileName)
                 val frame = ImageFrame.BitmapFrame(
                     bitmap = asset.bitmap,
@@ -169,6 +195,13 @@ class ScanViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Triggers the semantic analysis pipeline on the currently loaded test image and
+     * navigates to the results screen.
+     *
+     * @param context Android context for storage access.
+     * @param navController Controller for navigating between views.
+     */
     fun ingestTestImage(context: Context, navController: NavController) {
         val validation = _uiState.value.validationState
         val ocrResult = validation.ocrResult
@@ -201,9 +234,24 @@ class ScanViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Triggers the semantic analysis pipeline on the most recently captured live camera frame
+     * and navigates to the results screen.
+     *
+     * @param context Android context for storage access.
+     * @param navController Controller for navigating between views.
+     */
     fun ingestLiveCamera(context: Context, navController: NavController) {
         val ocrResult = _uiState.value.latestOcr
-        if (ocrResult == null || ocrResult.text.isBlank()) return
+        // BLACK-003 FIX: Check CURRENT state at invocation time (not at button-render time)
+        // to avoid silent no-ops from race condition between button enable and tap.
+        if (ocrResult == null || ocrResult.text.isBlank()) {
+            android.util.Log.w("NUTRIGUARD_DEBUG", "ingestLiveCamera EARLY RETURN: no OCR text available")
+            return
+        }
+
+        // BLACK-003 FIX: Set isIngesting state for live camera (same as test image path)
+        _uiState.update { it.copy(isIngesting = true, errorMsg = null) }
 
         viewModelScope.launch(Dispatchers.Default) {
             try {
@@ -215,10 +263,29 @@ class ScanViewModel : ViewModel() {
                 )
             } catch (e: Throwable) {
                 android.util.Log.e("NUTRIGUARD_DEBUG", "Ingestion failed for live camera", e)
+                withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(errorMsg = "${e::class.java.simpleName}: ${e.message}") }
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(isIngesting = false) }
+                }
             }
         }
     }
 
+    /**
+     * Core orchestrator that runs the converged semantic interpretation pipeline on the selected image,
+     * extracts structured JSON output, records replay metrics, and triggers navigation to the Results view.
+     *
+     * Steps:
+     * 1. Resolve active bitmap and rotation angles based on scan source.
+     * 2. Configure [PipelineConfig] and execute [pipelineRunner.run] with the pre-existing OCR results.
+     * 3. Parse [PipelineResult] semantic ingredient listings into a serialized JSON array structure.
+     * 4. Serialize step-by-step processing latency metrics.
+     * 5. Record execution metadata trace via [ReplayStorageHelper] if replay telemetry is enabled.
+     * 6. Navigate to the results screen passing the serialized pipeline outputs.
+     */
     private suspend fun processAndNavigate(
         context: Context,
         sourceName: String,
@@ -226,329 +293,101 @@ class ScanViewModel : ViewModel() {
         navController: NavController
     ) = withContext(Dispatchers.Default) {
         android.util.Log.d("NUTRIGUARD_DEBUG", "processAndNavigate START for $sourceName")
-        val executionId = java.util.UUID.randomUUID()
         val ocrText = ocrResult.text
-        val ocrLatency = ocrResult.processingLatencyMs
-        val ocrConfidence = ocrResult.averageConfidence ?: 0.8f
 
-        val pipeline = semanticPipeline
-
-        val ocrMetadata = OcrMetadata(
-            ocrConfidence = ocrConfidence,
-            blurScore = ocrResult.blurScore,
-            contrastScore = ocrResult.contrastScore,
-            brightnessScore = ocrResult.brightnessScore
-        )
-        val ingestionResult = pipeline(Pair(ocrText, ocrMetadata))
-
-        // Execute PipelineRunner if useExecutionGraph is active
-        var pipelineResult: PipelineResult? = null
-        if (FeatureFlags.useExecutionGraph) {
-            val bitmap = if (sourceName == "Live Camera Scan") {
-                latestBitmap
-            } else {
-                _uiState.value.validationState.asset?.bitmap ?: latestBitmap
-            }
-            val rotationDegrees = if (sourceName == "Live Camera Scan") {
-                0
-            } else {
-                _uiState.value.validationState.asset?.rotationDegrees ?: 0
-            }
-            val imageSource = if (sourceName == "Live Camera Scan") ImageSource.CAMERA_X else ImageSource.TEST_ASSET
-
-            if (bitmap != null) {
-                try {
-                    val config = PipelineConfig(
-                        mode = PipelineMode.DEVELOPER,
-                        enableReplay = FeatureFlags.enableReplay,
-                        enableMetrics = true,
-                        enableOverlayData = true
-                    )
-                    pipelineResult = pipelineRunner.run(
-                        bitmap = bitmap,
-                        rotationDegrees = rotationDegrees,
-                        source = imageSource,
-                        config = config,
-                        context = context
-                    )
-                } catch (e: Throwable) {
-                    android.util.Log.e("NUTRIGUARD_VAL", "PipelineRunner failed, falling back to legacy", e)
-                }
-            } else {
-                android.util.Log.w("NUTRIGUARD_VAL", "useExecutionGraph is true but active bitmap is null. Falling back to legacy path.")
-            }
-        }
-
-        // Compare Result A (Legacy) and Result B (PipelineRunner execution graph)
-        if (pipelineResult != null) {
-            try {
-                // 1. Compare Ingredients
-                val ingA = ingestionResult.correction.output.map { it.canonical }.sorted()
-                val ingB = pipelineResult.semanticIngredients.map { it.canonical }.sorted()
-                if (ingA != ingB) {
-                    android.util.Log.w("NUTRIGUARD_VAL", "Ingredients mismatch! Legacy ($ingA) vs Execution Graph ($ingB)")
-                }
-
-                // 2. Compare Allergens
-                val allergensA = ingestionResult.correction.output.flatMap { res ->
-                    val contextualReconstructionText = if (res.confidenceStep != null) {
-                        if (res.confidenceStep.contextBonus > 0.0f) res.canonical else null
-                    } else {
-                        if (res.explanationHint?.type == ExplanationType.CONTEXTUAL_RECONSTRUCTION) res.canonical else null
-                    }
-                    val baseConfidence = res.confidenceStep?.baseConfidence ?: res.confidence
-                    IngredientInterpreter.interpret(
-                        canonicalName = res.canonical,
-                        confidence = res.confidence,
-                        originalToken = res.originalToken,
-                        contextualReconstructionText = contextualReconstructionText,
-                        baseConfidence = baseConfidence,
-                        provenance = DatasetProvenance.REAL_WORLD,
-                        calibrationEligible = true
-                    ).warnings.filter { it.startsWith("Contains allergen:") }
-                }.sorted()
-
-                val allergensB = pipelineResult.allergenInterpretation?.allergensDetected?.map { "Contains allergen: $it" }?.sorted() ?: emptyList()
-                if (allergensA != allergensB) {
-                    android.util.Log.w("NUTRIGUARD_VAL", "Allergens mismatch! Legacy ($allergensA) vs Execution Graph ($allergensB)")
-                }
-
-                // 3. Compare Warnings
-                val warningsA = ingestionResult.correction.output.flatMap { res ->
-                    val contextualReconstructionText = if (res.confidenceStep != null) {
-                        if (res.confidenceStep.contextBonus > 0.0f) res.canonical else null
-                    } else {
-                        if (res.explanationHint?.type == ExplanationType.CONTEXTUAL_RECONSTRUCTION) res.canonical else null
-                    }
-                    val baseConfidence = res.confidenceStep?.baseConfidence ?: res.confidence
-                    IngredientInterpreter.interpret(
-                        canonicalName = res.canonical,
-                        confidence = res.confidence,
-                        originalToken = res.originalToken,
-                        contextualReconstructionText = contextualReconstructionText,
-                        baseConfidence = baseConfidence,
-                        provenance = DatasetProvenance.REAL_WORLD,
-                        calibrationEligible = true
-                    ).warnings
-                }.sorted()
-
-                val warningsB = pipelineResult.interpretedIngredients.flatMap { it.warnings }.sorted()
-                if (warningsA != warningsB) {
-                    android.util.Log.w("NUTRIGUARD_VAL", "Warnings mismatch! Legacy ($warningsA) vs Execution Graph ($warningsB)")
-                }
-
-                // 4. Compare Interpretations
-                val interpretationsA = ingestionResult.correction.output.map { res ->
-                    val contextualReconstructionText = if (res.confidenceStep != null) {
-                        if (res.confidenceStep.contextBonus > 0.0f) res.canonical else null
-                    } else {
-                        if (res.explanationHint?.type == ExplanationType.CONTEXTUAL_RECONSTRUCTION) res.canonical else null
-                    }
-                    val baseConfidence = res.confidenceStep?.baseConfidence ?: res.confidence
-                    val interp = IngredientInterpreter.interpret(
-                        canonicalName = res.canonical,
-                        confidence = res.confidence,
-                        originalToken = res.originalToken,
-                        contextualReconstructionText = contextualReconstructionText,
-                        baseConfidence = baseConfidence,
-                        provenance = DatasetProvenance.REAL_WORLD,
-                        calibrationEligible = true
-                    )
-                    "${interp.canonicalName}:${interp.category.name}:${interp.additiveCode}"
-                }.sorted()
-
-                val interpretationsB = pipelineResult.interpretedIngredients.map { interp ->
-                    "${interp.canonicalName}:${interp.category.name}:${interp.additiveCode}"
-                }.sorted()
-                if (interpretationsA != interpretationsB) {
-                    android.util.Log.w("NUTRIGUARD_VAL", "Interpretations mismatch! Legacy ($interpretationsA) vs Execution Graph ($interpretationsB)")
-                }
-
-                // 5. Compare Confidence
-                val confidenceA = ingestionResult.correction.output.map { it.confidence }.average().takeIf { !it.isNaN() } ?: 0.0
-                val confidenceB = pipelineResult.metrics.averageConfidence.toDouble()
-                if (Math.abs(confidenceA - confidenceB) > 0.01) {
-                    android.util.Log.w("NUTRIGUARD_VAL", "Confidence mismatch! Legacy ($confidenceA) vs Execution Graph ($confidenceB)")
-                }
-
-                // 6. Compare Replay Outputs
-                val normA = ingestionResult.normalization.output
-                val normB = pipelineResult.replayTrace.find { it.stageName == "normalization" }?.output ?: ""
-                if (normA != normB) {
-                    android.util.Log.w("NUTRIGUARD_VAL", "Replay Output (normalization) mismatch! Legacy ($normA) vs Execution Graph ($normB)")
-                }
-            } catch (comparisonErr: Throwable) {
-                android.util.Log.e("NUTRIGUARD_VAL", "Error comparing parallel validation outputs", comparisonErr)
-            }
-        }
-
-        // Replay Persistence
-        if (pipelineResult != null) {
-            val failuresListB = mutableListOf<Map<String, Any>>()
-            pipelineResult.failures.forEach { fail ->
-                failuresListB.add(mapOf(
-                    "failure_type" to fail.failureType.name,
-                    "stage" to fail.stage,
-                    "details" to fail.details
-                ))
-            }
-            if (FeatureFlags.enableReplay && AppSettings.replaySaving && failuresListB.isNotEmpty()) {
-                val metricsB = mapOf(
-                    "avg_confidence" to pipelineResult.metrics.averageConfidence.toDouble(),
-                    "ingredient_count" to pipelineResult.semanticIngredients.size.toDouble(),
-                    "ocr_character_count" to (pipelineResult.ocrLines.flatMap { it.words }.joinToString(" ") { it.text }.length.toDouble())
-                )
-                val normalizedTextB = pipelineResult.replayTrace.find { it.stageName == "normalization" }?.output ?: ""
-                val extractedIngredientsB = pipelineResult.replayTrace.find { it.stageName == "extraction" }?.output?.split(", ")?.filter { it.isNotBlank() } ?: emptyList()
-                val canonicalIngredientsB = pipelineResult.semanticIngredients.map { result ->
-                    val contextualReconstructionText = if (result.disambiguationRule != null || result.debugSteps.any { it.contains("contextual bonus:") }) result.canonical else null
-                    val baseConfLine = result.debugSteps.firstOrNull { it.startsWith("base confidence:") }
-                    val baseConfidence = baseConfLine?.substringAfter("base confidence:")?.trim()?.toFloatOrNull() ?: result.confidence
-
-                    val interpretation = IngredientInterpreter.interpret(
-                        canonicalName = result.canonical,
-                        confidence = result.confidence,
-                        originalToken = result.originalToken,
-                        contextualReconstructionText = contextualReconstructionText,
-                        baseConfidence = baseConfidence,
-                        provenance = DatasetProvenance.REAL_WORLD,
-                        calibrationEligible = true
-                    )
-
-                    com.example.core.intelligence.correction.CorrectionResult(
-                        canonical = result.canonical,
-                        confidence = result.confidence,
-                        failures = result.failures,
-                        debugSteps = result.debugSteps,
-                        phraseWindow = result.phraseWindow,
-                        ontologyCategory = result.ontologyCategory,
-                        disambiguationRule = result.disambiguationRule,
-                        groupPath = result.groupPath,
-                        interpretedCategory = interpretation.category.name,
-                        additiveCode = interpretation.additiveCode,
-                        explanation = interpretation.explanation,
-                        warnings = interpretation.warnings
-                    )
-                }
-
-                val latenciesMapB = mapOf(
-                    "ocr" to pipelineResult.metrics.ocrLatencyMs,
-                    "normalization" to pipelineResult.metrics.normalizationLatencyMs,
-                    "extraction" to pipelineResult.metrics.extractionLatencyMs,
-                    "grouping" to pipelineResult.metrics.groupingLatencyMs,
-                    "phrase_correction" to pipelineResult.metrics.phraseCorrectionLatencyMs,
-                    "correction" to pipelineResult.metrics.correctionLatencyMs
-                )
-
-                ReplayStorageHelper.saveReplay(
-                    context = context,
-                    sourceImage = sourceName,
-                    ocrOutput = pipelineResult.ocrLines.flatMap { it.words }.joinToString(" ") { it.text }.ifBlank { ocrText },
-                    normalizedText = normalizedTextB,
-                    extractedIngredients = extractedIngredientsB,
-                    canonicalIngredients = canonicalIngredientsB,
-                    metrics = metricsB,
-                    failures = failuresListB,
-                    latencyMetrics = latenciesMapB,
-                    ocrWords = pipelineResult.ocrBlocks.flatMap { it.lines }.flatMap { it.words },
-                    reconstructedLines = pipelineResult.ocrLines,
-                    detectedParagraphs = emptyList(),
-                    passesRun = ocrResult.passesRun
-                )
-            }
+        val bitmap = if (sourceName == "Live Camera Scan") {
+            latestBitmap
         } else {
-            val failuresList = mutableListOf<Map<String, Any>>()
+            _uiState.value.validationState.asset?.bitmap ?: latestBitmap
+        }
+        val rotationDegrees = if (sourceName == "Live Camera Scan") {
+            0
+        } else {
+            _uiState.value.validationState.asset?.rotationDegrees ?: 0
+        }
+        val imageSource = if (sourceName == "Live Camera Scan") ImageSource.CAMERA_X else ImageSource.TEST_ASSET
 
-            ocrResult.failures.forEach { fail ->
-                failuresList.add(mapOf(
-                    "failure_type" to fail.name,
-                    "stage" to "ocr",
-                    "details" to "OCR stage error: ${ocrResult.skippedReason ?: "unknown validation failure"}"
-                ))
-            }
-
-            ingestionResult.normalization.failures.forEach { fail ->
-                failuresList.add(mapOf(
-                    "failure_type" to fail.name,
-                    "stage" to "normalization",
-                    "details" to "Normalization failed: output was blank"
-                ))
-            }
-            ingestionResult.extraction.failures.forEach { fail ->
-                failuresList.add(mapOf(
-                    "failure_type" to fail.name,
-                    "stage" to "extraction",
-                    "details" to "Extraction failed: zero tokens parsed from input"
-                ))
-            }
-            ingestionResult.correction.output.forEach { res ->
-                res.failures.forEach { fail ->
-                    failuresList.add(mapOf(
-                        "failure_type" to fail.name,
-                        "stage" to "correction",
-                        "details" to when(fail) {
-                            FailureType.UNKNOWN_INGREDIENT_FAILURE -> "Unknown ingredient \"${res.originalToken}\" not found in vocabulary or ontology."
-                            FailureType.AMBIGUOUS_MATCH_FAILURE -> "Ambiguous match detected for \"${res.originalToken}\"."
-                            FailureType.FUZZY_CORRECTION_FAILURE -> "Fuzzy correction quality exception for \"${res.originalToken}\"."
-                            FailureType.LOW_CONFIDENCE_CORRECTION_FAILURE -> "Low correction confidence for \"${res.originalToken}\" -> \"${res.canonical}\"."
-                            else -> "Correction exception detected."
-                        }
-                    ))
-                }
-            }
-
-            if (FeatureFlags.enableReplay && AppSettings.replaySaving && failuresList.isNotEmpty()) {
-                val metrics = mapOf(
-                    "avg_confidence" to (ingestionResult.correction.output.map { it.confidence }.average().takeIf { !it.isNaN() } ?: 0.0),
-                    "ingredient_count" to ingestionResult.correction.output.size.toDouble(),
-                    "ocr_character_count" to ocrText.length.toDouble()
-                )
-                val latenciesMap = mapOf(
-                    "ocr" to ocrLatency,
-                    "normalization" to ingestionResult.normalization.latencyMs,
-                    "extraction" to ingestionResult.extraction.latencyMs,
-                    "grouping" to ingestionResult.grouping.latencyMs,
-                    "phrase_correction" to ingestionResult.phraseCorrection.latencyMs,
-                    "correction" to ingestionResult.correction.latencyMs
-                )
-                ReplayStorageHelper.saveReplay(
-                    context = context,
-                    sourceImage = sourceName,
-                    ocrOutput = ocrText,
-                    normalizedText = ingestionResult.normalization.output,
-                    extractedIngredients = ingestionResult.extraction.output,
-                    canonicalIngredients = ingestionResult.correction.output,
-                    metrics = metrics,
-                    failures = failuresList,
-                    latencyMetrics = latenciesMap,
-                    ocrWords = ocrResult.ocrWords,
-                    reconstructedLines = ocrResult.reconstructedLines,
-                    detectedParagraphs = ocrResult.detectedParagraphs,
-                    passesRun = ocrResult.passesRun
-                )
-            }
+        if (bitmap == null) {
+            throw IllegalStateException("Active bitmap is null; cannot process label.")
         }
 
-        // Cache Snapshot to Repository
-        if (pipelineResult == null) {
-            val semanticIngredients = ingestionResult.correction.output.map { result ->
-                val contextualReconstructionText = if (result.confidenceStep != null) {
-                    if (result.confidenceStep.contextBonus > 0.0f) result.canonical else null
-                } else {
-                    if (result.explanationHint?.type == ExplanationType.CONTEXTUAL_RECONSTRUCTION) result.canonical else null
-                }
-                val baseConfidence = result.confidenceStep?.baseConfidence ?: result.confidence
+        val config = PipelineConfig(
+            mode = PipelineMode.DEVELOPER,
+            enableReplay = FeatureFlags.enableReplay,
+            enableMetrics = true,
+            enableOverlayData = true
+        )
+        val pipelineResult = pipelineRunner.run(
+            bitmap = bitmap,
+            rotationDegrees = rotationDegrees,
+            source = imageSource,
+            config = config,
+            context = context,
+            preExistingOcr = ocrResult
+        )
 
-                val interpretation = IngredientInterpreter.interpret(
-                    canonicalName = result.canonical,
-                    confidence = result.confidence,
-                    originalToken = result.originalToken,
-                    contextualReconstructionText = contextualReconstructionText,
-                    baseConfidence = baseConfidence
-                )
-                com.example.core.pipeline.SemanticIngredient(
+        // Authoritative path: PipelineRunner -> PipelineResult
+        val canonicalJsonB = JSONArray().apply {
+            pipelineResult.semanticIngredients.forEach { result ->
+                put(JSONObject().apply {
+                    put("canonical", result.canonical)
+                    put("confidence", result.confidence.toDouble())
+                    put("originalToken", result.originalToken)
+                    put("ontologyCategory", result.ontologyCategory ?: "")
+                    put("disambiguationRule", result.disambiguationRule ?: "")
+                    put("groupPath", result.groupPath)
+                    put("interpretedCategory", result.interpretedCategory ?: "")
+                    put("additiveCode", result.additiveCode ?: "")
+                    put("explanation", result.explanation ?: "")
+
+                    val warningsArr = JSONArray()
+                    result.warnings.forEach { warningsArr.put(it) }
+                    put("warnings", warningsArr)
+
+                    val stepsArr = JSONArray()
+                    result.debugSteps.forEach { stepsArr.put(it) }
+                    put("debugSteps", stepsArr)
+
+                    val failsArr = JSONArray()
+                    result.failures.forEach { failsArr.put(it.name) }
+                    put("failures", failsArr)
+
+                    val phraseArr = JSONArray()
+                    result.phraseWindow.forEach { phraseArr.put(it) }
+                    put("phraseWindow", phraseArr)
+                })
+            }
+        }.toString()
+
+        val latenciesJsonB = JSONObject().apply {
+            put("ocr", pipelineResult.metrics.ocrLatencyMs)
+            put("normalization", pipelineResult.metrics.normalizationLatencyMs)
+            put("extraction", pipelineResult.metrics.extractionLatencyMs)
+            put("grouping", pipelineResult.metrics.groupingLatencyMs)
+            put("phrase_correction", pipelineResult.metrics.phraseCorrectionLatencyMs)
+            put("correction", pipelineResult.metrics.correctionLatencyMs)
+        }.toString()
+
+        // Save Replay trace
+        val failuresListB = mutableListOf<Map<String, Any>>()
+        pipelineResult.failures.forEach { fail ->
+            failuresListB.add(mapOf(
+                "failure_type" to fail.failureType.name,
+                "stage" to fail.stage,
+                "details" to fail.details
+            ))
+        }
+        if (FeatureFlags.enableReplay && AppSettings.replaySaving && failuresListB.isNotEmpty()) {
+            val metricsB = mapOf(
+                "avg_confidence" to pipelineResult.metrics.averageConfidence.toDouble(),
+                "ingredient_count" to pipelineResult.semanticIngredients.size.toDouble(),
+                "ocr_character_count" to (pipelineResult.ocrLines.flatMap { it.words }.joinToString(" ") { it.text }.length.toDouble())
+            )
+            val normalizedTextB = pipelineResult.replayTrace.find { it.stageName == "normalization" }?.output ?: ""
+            val extractedIngredientsB = pipelineResult.replayTrace.find { it.stageName == "extraction" }?.output?.split(", ")?.filter { it.isNotBlank() } ?: emptyList()
+            val canonicalIngredientsB = pipelineResult.semanticIngredients.map { result ->
+                com.example.core.intelligence.correction.CorrectionResult(
                     canonical = result.canonical,
-                    originalToken = result.originalToken,
                     confidence = result.confidence,
                     failures = result.failures,
                     debugSteps = result.debugSteps,
@@ -556,273 +395,47 @@ class ScanViewModel : ViewModel() {
                     ontologyCategory = result.ontologyCategory,
                     disambiguationRule = result.disambiguationRule,
                     groupPath = result.groupPath,
-                    interpretedCategory = interpretation.category.name,
-                    additiveCode = interpretation.additiveCode,
-                    explanation = interpretation.explanation,
-                    warnings = interpretation.warnings
+                    interpretedCategory = result.interpretedCategory,
+                    additiveCode = result.additiveCode,
+                    explanation = result.explanation,
+                    warnings = result.warnings
                 )
             }
 
-            val interpretedIngredients = semanticIngredients.map { ing ->
-                val baseConfLine = ing.debugSteps.firstOrNull { it.startsWith("base confidence:") }
-                val baseConfidence = baseConfLine?.substringAfter("base confidence:")?.trim()?.toFloatOrNull() ?: ing.confidence
-                val contextualReconstructionText = if (ing.disambiguationRule != null || ing.debugSteps.any { it.contains("contextual bonus:") }) ing.canonical else null
-
-                IngredientInterpreter.interpret(
-                    canonicalName = ing.canonical,
-                    confidence = ing.confidence,
-                    originalToken = ing.originalToken,
-                    contextualReconstructionText = contextualReconstructionText,
-                    baseConfidence = baseConfidence
-                )
-            }
-
-            val replayTraceList = listOf(
-                com.example.core.replay.ReplayStageTrace(
-                    stageName = "ocr",
-                    input = "image",
-                    output = ocrText,
-                    latencyMs = ocrLatency
-                ),
-                com.example.core.replay.ReplayStageTrace(
-                    stageName = "normalization",
-                    input = ocrText,
-                    output = ingestionResult.normalization.output,
-                    latencyMs = ingestionResult.normalization.latencyMs
-                ),
-                com.example.core.replay.ReplayStageTrace(
-                    stageName = "extraction",
-                    input = ingestionResult.normalization.output,
-                    output = ingestionResult.extraction.output.joinToString(", "),
-                    latencyMs = ingestionResult.extraction.latencyMs
-                ),
-                com.example.core.replay.ReplayStageTrace(
-                    stageName = "correction",
-                    input = ingestionResult.phraseCorrection.output.joinToString(", "),
-                    output = ingestionResult.correction.output.map { it.canonical }.joinToString(", "),
-                    latencyMs = ingestionResult.correction.latencyMs
-                )
+            val latenciesMapB = mapOf(
+                "ocr" to pipelineResult.metrics.ocrLatencyMs,
+                "normalization" to pipelineResult.metrics.normalizationLatencyMs,
+                "extraction" to pipelineResult.metrics.extractionLatencyMs,
+                "grouping" to pipelineResult.metrics.groupingLatencyMs,
+                "phrase_correction" to pipelineResult.metrics.phraseCorrectionLatencyMs,
+                "correction" to pipelineResult.metrics.correctionLatencyMs
             )
 
-            val pipelineFailuresList = mutableListOf<com.example.core.pipeline.PipelineFailure>()
-            ocrResult.failures.forEach { fail ->
-                pipelineFailuresList.add(com.example.core.pipeline.PipelineFailure(fail, "ocr", "OCR stage error: ${ocrResult.skippedReason ?: "unknown validation failure"}"))
-            }
-            ingestionResult.normalization.failures.forEach { fail ->
-                pipelineFailuresList.add(com.example.core.pipeline.PipelineFailure(fail, "normalization", "Normalization failed: output was blank"))
-            }
-            ingestionResult.extraction.failures.forEach { fail ->
-                pipelineFailuresList.add(com.example.core.pipeline.PipelineFailure(fail, "extraction", "Extraction failed: zero tokens parsed from input"))
-            }
-            ingestionResult.correction.output.forEach { res ->
-                res.failures.forEach { fail ->
-                    pipelineFailuresList.add(com.example.core.pipeline.PipelineFailure(fail, "correction", "Token correction warning on '${res.originalToken}': ${fail.name}"))
-                }
-            }
-
-            val latenciesMap = mapOf(
-                "ocr" to ocrLatency,
-                "normalization" to ingestionResult.normalization.latencyMs,
-                "extraction" to ingestionResult.extraction.latencyMs,
-                "grouping" to ingestionResult.grouping.latencyMs,
-                "phrase_correction" to ingestionResult.phraseCorrection.latencyMs,
-                "correction" to ingestionResult.correction.latencyMs
+            ReplayStorageHelper.saveReplay(
+                context = context,
+                sourceImage = sourceName,
+                ocrOutput = pipelineResult.ocrLines.flatMap { it.words }.joinToString(" ") { it.text }.ifBlank { ocrText },
+                normalizedText = normalizedTextB,
+                extractedIngredients = extractedIngredientsB,
+                canonicalIngredients = canonicalIngredientsB,
+                metrics = metricsB,
+                failures = failuresListB,
+                latencyMetrics = latenciesMapB,
+                ocrWords = pipelineResult.ocrBlocks.flatMap { it.lines }.flatMap { it.words },
+                reconstructedLines = pipelineResult.ocrLines,
+                detectedParagraphs = emptyList(),
+                passesRun = ocrResult.passesRun
             )
-
-            val pipelineMetrics = com.example.core.pipeline.PipelineMetrics(
-                ocrLatencyMs = ocrLatency,
-                normalizationLatencyMs = ingestionResult.normalization.latencyMs,
-                extractionLatencyMs = ingestionResult.extraction.latencyMs,
-                groupingLatencyMs = ingestionResult.grouping.latencyMs,
-                phraseCorrectionLatencyMs = ingestionResult.phraseCorrection.latencyMs,
-                correctionLatencyMs = ingestionResult.correction.latencyMs,
-                totalLatencyMs = latenciesMap.values.sum(),
-                memoryUsageKb = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / 1024L,
-                averageConfidence = ocrConfidence
-            )
-
-            val preprocessingProfile = com.example.core.pipeline.PreprocessingProfile(
-                blurScore = ocrResult.blurScore,
-                contrastScore = ocrResult.contrastScore,
-                brightnessScore = ocrResult.brightnessScore,
-                complexityRating = ocrResult.complexityRating,
-                routedStrategy = ocrResult.routedStrategy
-            )
-
-            val legacyPipelineResult = com.example.core.pipeline.PipelineResult(
-                executionId = executionId,
-                ocrBlocks = ocrResult.ocrBlocks,
-                ocrLines = ocrResult.reconstructedLines,
-                semanticIngredients = semanticIngredients,
-                interpretedIngredients = interpretedIngredients,
-                replayTrace = replayTraceList,
-                metrics = pipelineMetrics,
-                preprocessingProfile = preprocessingProfile,
-                failures = pipelineFailuresList
-            )
-
-            val renamedPaths = com.example.core.export.PipelineSnapshotRepository.renameTempFiles(context, executionId.toString())
-            val snapshot = com.example.core.export.PipelineSnapshot(
-                executionId = executionId.toString(),
-                rawImagePath = renamedPaths.first,
-                preprocessedImagePath = renamedPaths.second,
-                result = legacyPipelineResult,
-                timestamp = System.currentTimeMillis(),
-                scanSource = sourceName
-            )
-            println("ScanViewModel: Adding snapshot with executionId = '${executionId.toString()}' to PipelineSnapshotRepository")
-            com.example.core.export.PipelineSnapshotRepository.add(snapshot)
         }
 
-        // Build routeArgs
-        val routeArgs = if (pipelineResult != null) {
-            val canonicalJsonB = JSONArray().apply {
-                pipelineResult.semanticIngredients.forEach { result ->
-                    put(JSONObject().apply {
-                        put("canonical", result.canonical)
-                        put("confidence", result.confidence.toDouble())
-                        put("originalToken", result.originalToken)
-                        put("ontologyCategory", result.ontologyCategory ?: "")
-                        put("disambiguationRule", result.disambiguationRule ?: "")
-                        put("groupPath", result.groupPath)
-                        put("interpretedCategory", result.interpretedCategory ?: "")
-                        put("additiveCode", result.additiveCode ?: "")
-                        put("explanation", result.explanation ?: "")
-
-                        val warningsArr = JSONArray()
-                        result.warnings.forEach { warningsArr.put(it) }
-                        put("warnings", warningsArr)
-
-                        val stepsArr = JSONArray()
-                        result.debugSteps.forEach { stepsArr.put(it) }
-                        put("debugSteps", stepsArr)
-
-                        val failsArr = JSONArray()
-                        result.failures.forEach { failsArr.put(it.name) }
-                        put("failures", failsArr)
-
-                        val phraseArr = JSONArray()
-                        result.phraseWindow.forEach { phraseArr.put(it) }
-                        put("phraseWindow", phraseArr)
-                    })
-                }
-            }.toString()
-
-            val latenciesJsonB = JSONObject().apply {
-                put("ocr", pipelineResult.metrics.ocrLatencyMs)
-                put("normalization", pipelineResult.metrics.normalizationLatencyMs)
-                put("extraction", pipelineResult.metrics.extractionLatencyMs)
-                put("grouping", pipelineResult.metrics.groupingLatencyMs)
-                put("phrase_correction", pipelineResult.metrics.phraseCorrectionLatencyMs)
-                put("correction", pipelineResult.metrics.correctionLatencyMs)
-            }.toString()
-
-            Screen.Results(
-                rawOcrText = pipelineResult.ocrLines.flatMap { it.words }.joinToString(" ") { it.text }.ifBlank { ocrText },
-                normalizedText = pipelineResult.replayTrace.find { it.stageName == "normalization" }?.output ?: "",
-                extractedTokens = pipelineResult.replayTrace.find { it.stageName == "extraction" }?.output?.split(", ")?.filter { it.isNotBlank() } ?: emptyList(),
-                canonicalJson = canonicalJsonB,
-                latencyJson = latenciesJsonB,
-                executionId = pipelineResult.executionId.toString()
-            )
-        } else {
-            val canonicalJsonA = JSONArray().apply {
-                ingestionResult.correction.output.forEach { result ->
-                    put(JSONObject().apply {
-                        put("canonical", result.canonical)
-                        put("confidence", result.confidence.toDouble())
-                        put("originalToken", result.originalToken)
-                        put("ontologyCategory", result.ontologyCategory ?: "")
-                        put("disambiguationRule", result.disambiguationRule ?: "")
-                        put("groupPath", result.groupPath)
-
-                        val contextualReconstructionText = if (result.confidenceStep != null) {
-                            if (result.confidenceStep.contextBonus > 0.0f) result.canonical else null
-                        } else {
-                            if (result.explanationHint?.type == ExplanationType.CONTEXTUAL_RECONSTRUCTION) result.canonical else null
-                        }
-                        val baseConfidence = result.confidenceStep?.baseConfidence ?: result.confidence
-
-                        val interpretation = IngredientInterpreter.interpret(
-                            canonicalName = result.canonical,
-                            confidence = result.confidence,
-                            originalToken = result.originalToken,
-                            contextualReconstructionText = contextualReconstructionText,
-                            baseConfidence = baseConfidence,
-                            provenance = DatasetProvenance.REAL_WORLD,
-                            calibrationEligible = true
-                        )
-                        put("interpretedCategory", interpretation.category.name)
-                        put("additiveCode", interpretation.additiveCode ?: "")
-                        put("explanation", interpretation.explanation ?: "")
-                        put("provenance", interpretation.provenance.name)
-                        put("calibrationEligible", interpretation.calibrationEligible)
-
-
-                        val warningsArr = JSONArray()
-                        interpretation.warnings.forEach { warningsArr.put(it) }
-                        put("warnings", warningsArr)
-
-                        val stepsArr = JSONArray()
-                        result.debugSteps.forEach { stepsArr.put(it) }
-                        put("debugSteps", stepsArr)
-
-                        val failsArr = JSONArray()
-                        result.failures.forEach { failsArr.put(it.name) }
-                        put("failures", failsArr)
-
-                        val phraseArr = JSONArray()
-                        result.phraseWindow.forEach { phraseArr.put(it) }
-                        put("phraseWindow", phraseArr)
-
-                        if (result.confidenceStep != null) {
-                            put("confidenceStep", JSONObject().apply {
-                                put("baseConfidence", result.confidenceStep.baseConfidence.toDouble())
-                                put("contextBonus", result.confidenceStep.contextBonus.toDouble())
-                                put("finalConfidence", result.confidenceStep.finalConfidence.toDouble())
-                                put("reason", result.confidenceStep.reason ?: "")
-                                val infTokensArr = JSONArray()
-                                result.confidenceStep.influencingTokens.forEach { infTokensArr.put(it) }
-                                put("influencingTokens", infTokensArr)
-                            })
-                        }
-                        val infArr = JSONArray()
-                        result.influencingTokens.forEach { infArr.put(it) }
-                        put("influencingTokens", infArr)
-
-                        if (result.explanationHint != null) {
-                            put("explanationHint", JSONObject().apply {
-                                put("type", result.explanationHint.type.name)
-                                put("originalText", result.explanationHint.originalText ?: "")
-                                put("reconstructedText", result.explanationHint.reconstructedText ?: "")
-                                put("reason", result.explanationHint.reason)
-                            })
-                        }
-                    })
-                }
-            }.toString()
-
-            val latenciesMap = mapOf(
-                "ocr" to ocrLatency,
-                "normalization" to ingestionResult.normalization.latencyMs,
-                "extraction" to ingestionResult.extraction.latencyMs,
-                "grouping" to ingestionResult.grouping.latencyMs,
-                "phrase_correction" to ingestionResult.phraseCorrection.latencyMs,
-                "correction" to ingestionResult.correction.latencyMs
-            )
-            val latenciesJsonA = JSONObject().apply {
-                latenciesMap.forEach { (k, v) -> put(k, v) }
-            }.toString()
-
-            Screen.Results(
-                rawOcrText = ocrText,
-                normalizedText = ingestionResult.normalization.output,
-                extractedTokens = ingestionResult.extraction.output,
-                canonicalJson = canonicalJsonA,
-                latencyJson = latenciesJsonA,
-                executionId = executionId.toString()
-            )
-        }
+        val routeArgs = Screen.Results(
+            rawOcrText = pipelineResult.ocrLines.flatMap { it.words }.joinToString(" ") { it.text }.ifBlank { ocrText },
+            normalizedText = pipelineResult.replayTrace.find { it.stageName == "normalization" }?.output ?: "",
+            extractedTokens = pipelineResult.replayTrace.find { it.stageName == "extraction" }?.output?.split(", ")?.filter { it.isNotBlank() } ?: emptyList(),
+            canonicalJson = canonicalJsonB,
+            latencyJson = latenciesJsonB,
+            executionId = pipelineResult.executionId.toString()
+        )
 
         android.util.Log.d("NUTRIGUARD_DEBUG", "processAndNavigate END - navigating to ResultsScreen")
         withContext(Dispatchers.Main) {
@@ -830,8 +443,24 @@ class ScanViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Cleans up ViewModel state when destroyed:
+     * 1. Closes the [ocrPipeline].
+     * 2. Closes the [pipelineRunner] to release native ML Kit resources.
+     * 3. Recycles all referenced temporary bitmaps.
+     */
     override fun onCleared() {
         super.onCleared()
         ocrPipeline.close()
+        // ISSUE-004 FIX: Close PipelineRunner to release StructuralLayoutAnalyzer.fastRecognizer
+        // (ML Kit TextRecognizer — native resource that must be explicitly freed).
+        pipelineRunner.close()
+        // ISSUE-002 FIX: Recycle the last stored bitmap when ViewModel is destroyed
+        // to release bitmap memory held across the ViewModel lifecycle.
+        latestBitmap?.recycle()
+        latestBitmap = null
+        _uiState.value.validationState.ocrResult?.frameBitmap?.recycle()
+        _uiState.value.latestOcr?.frameBitmap?.recycle()
     }
+
 }

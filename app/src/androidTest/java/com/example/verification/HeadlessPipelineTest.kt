@@ -18,6 +18,14 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class HeadlessPipelineTest {
 
+    /**
+     * Verifies the complete end-to-end headless execution flow on a standard label image.
+     * Asserts that:
+     * 1. The image is parsed correctly by OCR.
+     * 2. Semantic ingredients are extracted, matching expected token sets.
+     * 3. Execution latencies and memory usage metrics are properly populated.
+     * 4. Interpreted ingredients are generated.
+     */
     @Test
     fun testPipelineHeadlessExecutionOnLabel000006() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -25,8 +33,7 @@ class HeadlessPipelineTest {
         // Instantiate core pipeline dependencies
         val ocrPipeline = OCRPipeline()
         val vocabulary = IngredientVocabulary()
-        val semanticPipeline = SemanticPipeline(vocabulary)
-        val pipelineRunner = PipelineRunner(ocrPipeline, semanticPipeline)
+        val pipelineRunner = PipelineRunner(ocrPipeline, vocabulary)
 
         try {
             // Load test image from assets
@@ -79,6 +86,13 @@ class HeadlessPipelineTest {
         }
     }
 
+    /**
+     * Verifies that the telemetry session export folder matches the required format specifications.
+     * Asserts that:
+     * 1. Snapshot repository tracks the execution successfully.
+     * 2. The exported directory structure contains all domain folders (raw, metrics, metadata, etc.).
+     * 3. The manifest.json file lists files with matching SHA-256 hash checks.
+     */
     @Test
     fun testPipelineExportIntegrity() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -86,8 +100,7 @@ class HeadlessPipelineTest {
         // Instantiate core pipeline dependencies
         val ocrPipeline = OCRPipeline()
         val vocabulary = IngredientVocabulary()
-        val semanticPipeline = SemanticPipeline(vocabulary)
-        val pipelineRunner = PipelineRunner(ocrPipeline, semanticPipeline)
+        val pipelineRunner = PipelineRunner(ocrPipeline, vocabulary)
 
         try {
             // Load test image from assets
@@ -164,6 +177,10 @@ class HeadlessPipelineTest {
         }
     }
 
+    /**
+     * Directly tests the logic of [IngredientInterpreter] to verify the categorization,
+     * additive mapping, warnings distribution, and fallback rules.
+     */
     @Test
     fun testIngredientInterpreterDirectly() {
         // 1. Verify E-number interpretation (Citric Acid)

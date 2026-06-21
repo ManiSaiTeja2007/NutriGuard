@@ -42,7 +42,29 @@ class OCRPipeline(
 
     var context: android.content.Context? = null
 
+    // ISSUE-003 FIX: Single vocabulary instance shared across all OCR invocations.
+    // Previously IngredientVocabulary() was instantiated inside invoke() on every camera frame,
+    // causing ~1.4 allocations/second during live camera scanning.
+    private val vocabulary = IngredientVocabulary()
+
+    /**
+     * Executes the main OCR pipeline on the input frame.
+     *
+     * Steps:
+     * 1. Validate image dimensions to ensure eligibility (>8x8 and >32x32 for ML Kit).
+     * 2. Normalize and rotate the input frame into a standardized upright bitmap.
+     * 3. Analyze image complexity metrics (blur, contrast, brightness).
+     * 4. Route to the optimal OCR preprocessing strategy (UPSCALE, SHARPENED, THRESHOLDED, LOW_LIGHT, TILED, or STANDARD).
+     * 5. Run ML Kit text recognition on the processed bitmap.
+     * 6. Reconstruct individual line hierarchies and run layout structure zoning.
+     * 7. Package results and log analytics instrumentation.
+     * 8. Clean up intermediate temporary bitmaps to avoid memory leaks.
+     *
+     * @param input Pair of [ImageFrame] and [FrameAnalysisResult].
+     * @return [OcrResult] containing recognized text, confidence, blocks, and preprocessing metadata.
+     */
     override suspend fun invoke(input: Pair<ImageFrame, FrameAnalysisResult>): OcrResult {
+
         val (frame, frameResult) = input
 
         if (!isOcrEligible(frameResult)) {
@@ -83,8 +105,11 @@ class OCRPipeline(
 
         val startedAtMs = SystemClock.elapsedRealtime()
 
+        var normalizedBitmap: Bitmap? = null
+        var isTemporary = false
+
         return try {
-            val normalizedBitmap = frame.toNormalisedBitmap()
+            normalizedBitmap = frame.toNormalisedBitmap()
             if (normalizedBitmap == null) {
                 val skippedResult = OcrResult(
                     text = "",
@@ -103,10 +128,28 @@ class OCRPipeline(
                 return skippedResult
             }
 
-            val isTemporary = (frame is ImageFrame.CameraXFrame) || (frame is ImageFrame.BitmapFrame && frame.rotationDegrees != 0)
+            isTemporary = (frame is ImageFrame.CameraXFrame) || (frame is ImageFrame.BitmapFrame && frame.rotationDegrees != 0)
 
             val metrics = OCRComplexityAnalyzer.analyze(normalizedBitmap)
             val strategy = OCRPipelineRouter.route(normalizedBitmap.width, normalizedBitmap.height, metrics)
+
+            // Downscale only for expensive JIT binarization/preprocessing strategies to prevent latency explosion
+            if (strategy == OCRPipelineRouter.OcrStrategy.SHARPENED ||
+                strategy == OCRPipelineRouter.OcrStrategy.THRESHOLDED ||
+                strategy == OCRPipelineRouter.OcrStrategy.LOW_LIGHT) {
+                val MAX_DIMENSION = 1200
+                if (normalizedBitmap.width > MAX_DIMENSION || normalizedBitmap.height > MAX_DIMENSION) {
+                    val scale = MAX_DIMENSION.toFloat() / maxOf(normalizedBitmap.width, normalizedBitmap.height)
+                    val targetW = (normalizedBitmap.width * scale).toInt()
+                    val targetH = (normalizedBitmap.height * scale).toInt()
+                    val scaled = Bitmap.createScaledBitmap(normalizedBitmap, targetW, targetH, true)
+                    if (isTemporary) {
+                        normalizedBitmap.recycle()
+                    }
+                    isTemporary = true
+                    normalizedBitmap = scaled
+                }
+            }
 
             var tileRegions = emptyList<Rect>()
             var words = emptyList<OCRWord>()
@@ -181,7 +224,7 @@ class OCRPipeline(
                     }
                     OCRPipelineRouter.OcrStrategy.TILED -> {
                         try {
-                            val tileBlocksList = mutableListOf<OCRBlock>()
+                            val tileBlocksList = java.util.Collections.synchronizedList(mutableListOf<OCRBlock>())
                             val tiledResult = TiledOCRProcessor.runTiledOcr(normalizedBitmap) { tile ->
                                 val (tileWords, tileBlocks) = runOcrOnBitmap(tile)
                                 tileBlocksList.addAll(tileBlocks)
@@ -214,7 +257,7 @@ class OCRPipeline(
                 }
             } finally {
                 val toSave = preprocessedBitmap ?: normalizedBitmap
-                if (context != null && toSave != null) {
+                if (context != null) {
                     com.example.core.export.PipelineSnapshotRepository.saveTempBitmap(context!!, toSave, "prep")
                 }
                 preprocessedBitmap?.recycle()
@@ -226,17 +269,13 @@ class OCRPipeline(
                 null
             }
 
-            if (isTemporary) {
-                normalizedBitmap.recycle()
-            }
-
             val reconstructedLines = OCRLineReconstructor.reconstruct(words)
             if (words.isNotEmpty() && reconstructedLines.isEmpty()) {
                 pipelineFailures.add(FailureType.LINE_RECONSTRUCTION_FAILURE)
             }
 
-            val vocabulary = IngredientVocabulary().getVocabulary()
-            val detectedParagraphs = IngredientRegionDetector.detectRegion(reconstructedLines, vocabulary)
+            val vocabSet = vocabulary.getVocabulary()
+            val detectedParagraphs = IngredientRegionDetector.detectRegion(reconstructedLines, vocabSet)
 
             val finalOcrText = if (detectedParagraphs.isNotEmpty()) {
                 detectedParagraphs.joinToString(separator = "\n") { line ->
@@ -283,9 +322,69 @@ class OCRPipeline(
         } catch (error: Throwable) {
             OcrInstrumentation.logFailure(frameResult.source, frameResult, error)
             throw error
+        } finally {
+            if (isTemporary) {
+                normalizedBitmap?.recycle()
+            }
         }
     }
 
+    /**
+     * Runs direct OCR text recognition on a bitmap without layout analysis or routing.
+     *
+     * @param bitmap Raw image bitmap.
+     * @return [OcrResult] wrapping standard OCR text outputs.
+     */
+    suspend fun runDirectOcr(bitmap: Bitmap): OcrResult {
+        val startedAtMs = SystemClock.elapsedRealtime()
+        val (words, blocks) = runOcrOnBitmap(bitmap)
+        val reconstructedLines = OCRLineReconstructor.reconstruct(words)
+        val finalOcrText = reconstructedLines.joinToString(separator = "\n") { line ->
+            line.words.joinToString(separator = " ") { it.text }
+        }
+        val latencyMs = (SystemClock.elapsedRealtime() - startedAtMs).coerceAtLeast(0L)
+        val confidenceValues = words.map { it.confidence }
+        val averageConfidence = if (confidenceValues.isNotEmpty()) confidenceValues.average().toFloat() else 0.8f
+
+        return OcrResult(
+            text = finalOcrText,
+            processingLatencyMs = latencyMs,
+            averageConfidence = averageConfidence,
+            textBlockCount = blocks.size,
+            lineCount = reconstructedLines.size,
+            elementCount = words.size,
+            source = com.example.core.imaging.ImageSource.CAMERA_X,
+            frame = FrameAnalysisResult(
+                width = bitmap.width,
+                height = bitmap.height,
+                rotationDegrees = 0,
+                timestampNanos = System.nanoTime(),
+                source = com.example.core.imaging.ImageSource.CAMERA_X,
+                hasBitmap = true,
+                processingLatencyMs = latencyMs
+            ),
+            segmentsProcessed = 1,
+            ocrBlocks = blocks,
+            ocrWords = words,
+            reconstructedLines = reconstructedLines,
+            detectedParagraphs = reconstructedLines,
+            passesRun = listOf("direct"),
+            failures = emptyList(),
+            blurScore = 0f,
+            contrastScore = 0f,
+            brightnessScore = 0f,
+            complexityRating = "LOW",
+            routedStrategy = "DIRECT"
+        )
+    }
+
+    /**
+     * Executes ML Kit text detection on the specified bitmap and maps GMS model outputs
+     * to internal models ([OCRWord], [OCRBlock]).
+     *
+     * @param bitmap Preprocessed upright bitmap.
+     * @return Pair of word list and block list.
+     */
     private suspend fun runOcrOnBitmap(bitmap: Bitmap): Pair<List<OCRWord>, List<OCRBlock>> {
         val image = InputImage.fromBitmap(bitmap, 0)
         val textResult = recognizer.process(image).await()
@@ -313,14 +412,23 @@ class OCRPipeline(
         return Pair(words, blocks)
     }
 
+    /**
+     * Checks if the frame dimensions meet minimum size requirements for character recognition.
+     */
     private fun isOcrEligible(frameResult: FrameAnalysisResult): Boolean {
         return frameResult.width >= 8 && frameResult.height >= 8
     }
 
+    /**
+     * Releases the ML Kit TextRecognizer engine instance.
+     */
     override fun close() {
         recognizer.close()
     }
 
+    /**
+     * Converts a GMS Task into a suspendable coroutine continuation.
+     */
     private suspend fun <T> Task<T>.await(): T {
         return suspendCancellableCoroutine { continuation ->
             addOnSuccessListener { result ->
@@ -336,79 +444,4 @@ class OCRPipeline(
         }
     }
 
-    private fun rotateBitmap(bitmap: Bitmap, degrees: Int): Bitmap {
-        if (degrees == 0) return bitmap
-        val matrix = android.graphics.Matrix().apply { postRotate(degrees.toFloat()) }
-        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-    }
-
-    private fun ImageFrame.toNormalisedBitmap(): Bitmap? {
-        return when (this) {
-            is ImageFrame.BitmapFrame -> {
-                rotateBitmap(this.bitmap, this.rotationDegrees)
-            }
-            is ImageFrame.CameraXFrame -> {
-                val bitmap = this.imageProxy.toBitmapCompat() ?: return null
-                rotateBitmap(bitmap, this.rotationDegrees)
-            }
-        }
-    }
-
-    private fun ImageProxy.toBitmapCompat(): Bitmap? {
-        val image = this.image ?: return null
-        val nv21 = yuv420ToNv21(image)
-        val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
-        val out = ByteArrayOutputStream()
-        yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), 100, out)
-        val imageBytes = out.toByteArray()
-        return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-    }
-
-    private fun yuv420ToNv21(image: android.media.Image): ByteArray {
-        val width = image.width
-        val height = image.height
-        val ySize = width * height
-        val uvSize = width * height / 4
-        val nv21 = ByteArray(ySize + uvSize * 2)
-
-        val yBuffer = image.planes[0].buffer
-        val uBuffer = image.planes[1].buffer
-        val vBuffer = image.planes[2].buffer
-
-        val yRowStride = image.planes[0].rowStride
-        val yPixelStride = image.planes[0].pixelStride
-
-        val uRowStride = image.planes[1].rowStride
-        val uPixelStride = image.planes[1].pixelStride
-
-        val vRowStride = image.planes[2].rowStride
-        val vPixelStride = image.planes[2].pixelStride
-
-        var pos = 0
-        if (yRowStride == width && yPixelStride == 1) {
-            yBuffer.get(nv21, 0, ySize)
-            pos = ySize
-        } else {
-            for (row in 0 until height) {
-                yBuffer.position(row * yRowStride)
-                for (col in 0 until width) {
-                    nv21[pos++] = yBuffer.get()
-                }
-            }
-        }
-
-        val uvHeight = height / 2
-        val uvWidth = width / 2
-        for (row in 0 until uvHeight) {
-            val uRowStart = row * uRowStride
-            val vRowStart = row * vRowStride
-            for (col in 0 until uvWidth) {
-                val uVal = uBuffer.get(uRowStart + col * uPixelStride)
-                val vVal = vBuffer.get(vRowStart + col * vPixelStride)
-                nv21[pos++] = vVal
-                nv21[pos++] = uVal
-            }
-        }
-        return nv21
-    }
 }

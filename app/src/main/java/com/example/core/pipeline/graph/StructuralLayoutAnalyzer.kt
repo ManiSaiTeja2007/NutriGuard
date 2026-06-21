@@ -11,7 +11,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class StructuralLayoutAnalyzer : ExecutionStage<Bitmap, StructuralLayoutAnalyzer.StructuralAnalysisResult> {
+class StructuralLayoutAnalyzer : ExecutionStage<Bitmap, StructuralLayoutAnalyzer.StructuralAnalysisResult>, java.io.Closeable {
     override val stageName: String = "structural_analysis"
 
     data class StructuralAnalysisResult(
@@ -210,5 +210,11 @@ class StructuralLayoutAnalyzer : ExecutionStage<Bitmap, StructuralLayoutAnalyzer
                 }
             }
         }
+    }
+
+    // ISSUE-004 FIX: Implement Closeable so the ML Kit recognizer is released
+    // when StructuralLayoutAnalyzer is no longer needed, preventing native resource leaks.
+    override fun close() {
+        fastRecognizer.close()
     }
 }

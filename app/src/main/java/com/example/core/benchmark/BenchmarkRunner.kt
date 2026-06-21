@@ -82,18 +82,49 @@ data class BenchmarkGroundTruth(
     val failureTags: List<String>
 )
 
+/**
+ * BenchmarkRunner coordinates offline accuracy, precision, and latency evaluation
+ * of the converged text intelligence pipeline against annotated ground-truth labels.
+ *
+ * It parses test image assets, processes them through the execution graph runner,
+ * and computes metrics like CER, WER, Precision, Recall, F1 score, and semantic safety indicators.
+ *
+ * @property context Android context used to open assets.
+ */
 class BenchmarkRunner(
     private val context: Context
 ) {
     private val ocrPipeline = OCRPipeline()
     private val vocabulary = IngredientVocabulary()
-    private val semanticPipeline = SemanticPipeline(vocabulary)
-    private val pipelineRunner = PipelineRunner(ocrPipeline, semanticPipeline)
+    private val pipelineRunner = PipelineRunner(ocrPipeline, vocabulary)
 
+    /**
+     * Closes internal pipelines and releases resources (e.g. OCR engines) to prevent native leaks.
+     */
     fun close() {
         ocrPipeline.close()
     }
 
+    /**
+     * Executes the benchmark suite on a selected subset of images listed in the manifest.
+     *
+     * Steps:
+     * 1. Read and parse the JSON master manifest to identify test records.
+     * 2. Filter records based on target subset (e.g. "blurry", "curved_packaging", "all").
+     * 3. For each entry:
+     *    a. Load annotation ground-truth.
+     *    b. Load label bitmap.
+     *    c. Execute the [PipelineRunner] on the bitmap.
+     *    d. Calculate character error rates (CER) and word error rates (WER).
+     *    e. Calculate extraction precision, recall, and F1.
+     *    f. Compute semantic accuracy metrics (additives, category matching, unknown preservation, confidence calibration).
+     * 4. Aggregate individual record results into a [BenchmarkSummary].
+     *
+     * @param manifestPath Path to the benchmark manifest file in assets.
+     * @param subset Subgroup filter criteria.
+     * @param onProgress Callback function invoked to report execution progress.
+     * @return Pair of [BenchmarkSummary] and list of [SingleRecordResult] items.
+     */
     suspend fun run(
         manifestPath: String = "manifests/master_manifest.json",
         subset: String = "all",
@@ -290,6 +321,15 @@ class BenchmarkRunner(
         return Pair(summary, records)
     }
 
+    /**
+     * Parses the annotation ground-truth text document into structured [BenchmarkGroundTruth].
+     *
+     * Annotation files are section-based, containing blocks like `[RAW INGREDIENTS]`,
+     * `[EXPECTED CANONICAL]`, `[NUTRITION VALUES]`, and `[FAILURE_TAGS]`.
+     *
+     * @param content Plaintext content of the annotation asset.
+     * @return Formatted [BenchmarkGroundTruth] record.
+     */
     private fun parseAnnotationText(content: String): BenchmarkGroundTruth {
         val sections = mutableMapOf<String, MutableList<String>>()
         var currentSection: String? = null
@@ -339,6 +379,9 @@ class BenchmarkRunner(
         return BenchmarkGroundTruth(rawIngredients, expectedCanonical, nutrition, failureTags)
     }
 
+    /**
+     * Computes the Character Error Rate (CER) using Levenshtein edit distance.
+     */
     private fun calculateCer(groundTruth: String, hypothesis: String): Float {
         if (groundTruth.isEmpty()) {
             return if (hypothesis.isEmpty()) 0.0f else 1.0f
@@ -347,6 +390,9 @@ class BenchmarkRunner(
         return dist.toFloat() / groundTruth.length
     }
 
+    /**
+     * Computes the Word Error Rate (WER) using Levenshtein edit distance at word granularity.
+     */
     private fun calculateWer(groundTruth: String, hypothesis: String): Float {
         val gtWords = groundTruth.split("\\s+".toRegex()).filter { it.isNotEmpty() }
         val hypWords = hypothesis.split("\\s+".toRegex()).filter { it.isNotEmpty() }
@@ -357,6 +403,9 @@ class BenchmarkRunner(
         return dist.toFloat() / gtWords.size
     }
 
+    /**
+     * Computes edit distance between two lists of words using dynamic programming.
+     */
     private fun wordEditDistance(s1: List<String>, s2: List<String>): Int {
         val len1 = s1.size
         val len2 = s2.size
@@ -389,6 +438,9 @@ class BenchmarkRunner(
         val f1: Float
     )
 
+    /**
+     * Calculates precision, recall, and F1 score for a list of actual outcomes against expected items.
+     */
     private fun calculatePrecisionRecallF1(expectedList: List<String>, actualList: List<String>): PrecisionRecallF1 {
         val expectedSet = expectedList.map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
         val actualSet = actualList.map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
